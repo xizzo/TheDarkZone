@@ -298,10 +298,6 @@ namespace TheDarkZone
 
         #region "Public functions"
 
-        public void LogToConsole(string txt)
-        {
-            API.consoleOutput(txt);
-        }
 
         #endregion 
 

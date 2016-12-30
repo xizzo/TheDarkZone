@@ -18,15 +18,13 @@ namespace TheDarkZone.Data
 
         private string connectionString = "";
         private string strSQL = "";
-        private TheDarkZone apiScript;
 
         #endregion 
 
         #region "Initialize"
 
-        public UserDataManager(TheDarkZone apiScript)
+        public UserDataManager()
         {
-            this.apiScript = apiScript;
             connectionString = GetMysqlConnectionString();
         }
 
@@ -54,7 +52,8 @@ namespace TheDarkZone.Data
             }
             catch (Exception ex)
             {
-                apiScript.LogToConsole("Error checking if username exists: " + ex.Message);
+                API.shared.consoleOutput("Error checking if username exists: " + ex.Message);
+
             }
             return false;
         }
@@ -93,7 +92,7 @@ namespace TheDarkZone.Data
             }
             catch (Exception ex)
             {
-                apiScript.LogToConsole("Error checking if user account exists: " + ex.Message);
+                API.shared.consoleOutput("Error checking if user account exists: " + ex.Message);
             }
             return id;
         }
@@ -122,14 +121,14 @@ namespace TheDarkZone.Data
                         paramPassword.Value = hashedPassword;
 
                         cmd.ExecuteNonQuery();
-                        apiScript.LogToConsole("Created new user account: " + username);
+                        API.shared.consoleOutput("Created new user account: " + username);
                         return GetUserID(username);
                     }
                 }
             }
             catch (Exception ex)
             {
-                apiScript.LogToConsole("Error creating new user account: " + ex.Message);
+                API.shared.consoleOutput("Error creating new user account: " + ex.Message);
 
             }
             return 0;
@@ -161,7 +160,7 @@ namespace TheDarkZone.Data
             }
             catch (Exception ex)
             {
-                apiScript.LogToConsole("Error getting user ID: " + ex.Message);
+                API.shared.consoleOutput("Error getting user ID: " + ex.Message);
             }
             return 0;
         } 
@@ -182,7 +181,7 @@ namespace TheDarkZone.Data
             }
             catch (Exception ex)
             {
-                apiScript.LogToConsole("Failed to load MySql connectionstring: " + ex.Message);
+                API.shared.consoleOutput("Failed to load MySql connectionstring: " + ex.Message);
             }
             return conStr;
         }
@@ -232,7 +231,7 @@ namespace TheDarkZone.Data
             }
             catch (Exception ex)
             {
-                apiScript.LogToConsole("Error checking if user account exists: " + ex.Message);
+                API.shared.consoleOutput("Error checking if user account exists: " + ex.Message);
             }
             return bytes;
         }
