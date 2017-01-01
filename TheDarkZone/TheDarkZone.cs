@@ -42,6 +42,7 @@ namespace TheDarkZone
             API.onPlayerEnterVehicle += onPlayerEnterVehicle;
             API.onPlayerPickup += onPlayerPickup;
             API.onChatMessage += onChatMessage;
+            API.onPlayerDeath += onPlayerDeath;
         }
 
         #endregion
@@ -54,7 +55,7 @@ namespace TheDarkZone
             Players.Add(new Player(sender, userDM, keys));
             SetPlayerCleanEntityData(sender);
             API.setPlayerSkin(sender, (PedHash)(788443093));
-            API.sendChatMessageToAll(sender.name + " connected to the server!");
+            API.sendChatMessageToAll("~c~[" + DateTime.Now.ToString("HH:mm") + "] " + sender.name + " joined the server!");
             API.sendChatMessageToPlayer(sender, "Please ~g~/register [username] [password]");
             API.sendChatMessageToPlayer(sender, "or ~g~/login [username] [password]");
             API.sendChatMessageToPlayer(sender, "if you already have an account.");
@@ -149,13 +150,31 @@ namespace TheDarkZone
         {
             if(API.getEntityData(sender.handle, keys.KEY_USER_ADMIN_LEVEL) == 3)
             {
-                API.sendChatMessageToAll("[ADMIN][~R~" + sender.name + "~w~]: " + message);
+                API.sendChatMessageToAll("~c~[" + DateTime.Now.ToString("HH:mm") + "]~w~[~b~ADMIN~w~] ~y~" + sender.name + "~w~: " + message);
             }
             else
             {
-                API.sendChatMessageToAll("[~y~" + sender.name + "~w~]: " + message);
+                API.sendChatMessageToAll("~c~[" + DateTime.Now.ToString("HH:mm") + "] ~y~" + sender.name + "~w~: " + message);
             }
             e.Cancel = true;
+        }
+
+        public void onPlayerDeath(Client sender, NetHandle reason, int weapon)
+        {
+            if (!reason.IsNull)
+            {
+                foreach (Player p in Players)
+                {
+                    if (p.client.handle == reason)
+                    {
+                        API.sendChatMessageToAll(GetChatTimeStamp() + " " + sender.name + " was killed by " + p.client.name+ ".");
+                        API.sendNotificationToAll(sender.name + " was killed by " + p.client.name);
+                        return;
+                    }
+                }
+            }
+            API.sendChatMessageToAll(GetChatTimeStamp() + " " + sender.name + " has died.");
+            API.sendNotificationToAll(sender.name + " died");
         }
 
         #endregion 
@@ -199,6 +218,52 @@ namespace TheDarkZone
 
         }
 
+        [Command("notifyall", GreedyArg=true)]
+        public void NotifyAll(Client sender, string txt)
+        {
+            if (PlayerAdminLevel(sender.handle) == 3)
+            {
+                API.sendNotificationToAll("[ADMIN] " + sender.name + ": " + txt);
+            }
+        }
+
+        [Command("nuke")]
+        public void Nuke(Client sender, Client target)
+        {
+            if (PlayerAdminLevel(sender.handle) == 3)
+            {
+                var t = Task.Run(async delegate
+                {
+                    API.sendChatMessageToPlayer(sender, "~g~Target " + target.name + " is beeing nuked!");
+                    API.sendNotificationToAll("A rocket strike was ordered on " + target.name);
+                    for (int i = 0; i < 20; i++)
+                    {
+                        if (API.getPlayerHealth(target) == 0) break;
+                        if (!API.isPlayerConnected(target)) break;
+                        double x = target.position.X + GetRandomDoubleBetween((int)(-25), (int)(25));
+                        double y = target.position.Y + GetRandomDoubleBetween((int)(-25), (int)(25));
+                        double z = target.position.Z + 20;
+                        Vector3 projStart = new Vector3(x, y, z);
+                        Vector3 projTarget = new Vector3(x, y, (z - 999999));
+
+                        API.createProjectile((WeaponHash)(-1312131151), projStart, projTarget, 0, GetRandomFloatBetween(7, 15));
+                        await Task.Delay(TimeSpan.FromMilliseconds(1000));
+                    }
+                });
+            }
+        }
+
+        [Command("tp")]
+        public void Teleport(Client sender, Client target)
+        {
+            if (PlayerAdminLevel(sender.handle) == 3)
+            {
+                Vector3 pos = API.getEntityPosition(sender.handle);
+                API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", pos, new Vector3(), 1f);
+                API.setEntityPosition(sender.handle, API.getEntityPosition(target.handle));
+            }
+        }
+
         #endregion
 
         #region "Account commands"
@@ -206,38 +271,44 @@ namespace TheDarkZone
         [Command(SensitiveInfo = true)]
         public void Login(Client sender, string username, string password)
         {
-            int uID = userDM.UserAccountExists(username, password);
-            if (uID != 0)
+            if (!PlayerLoggedIn(sender.handle))
             {
-                PlayerLoginSuccessfull(sender, uID);
-            }
-            else
-            {
-                API.sendChatMessageToPlayer(sender, "~r~No Account exists with those credentials!");
-                API.sendNotificationToPlayer(sender, "Failed to login!");
+                int uID = userDM.UserAccountExists(username, password);
+                if (uID != 0)
+                {
+                    PlayerLoginSuccessfull(sender, uID);
+                }
+                else
+                {
+                    API.sendChatMessageToPlayer(sender, "~r~No account exists with those credentials!");
+                    API.sendNotificationToPlayer(sender, "Failed to login!");
+                }
             }
         }
 
         [Command(SensitiveInfo = true)]
         public void Register(Client sender, string username, string password)
         {
-            if (userDM.UserNameExists(username))
+            if (!PlayerLoggedIn(sender.handle))
             {
-                API.sendChatMessageToPlayer(sender, "~r~Failed to register, because username exists already!");
-                API.sendNotificationToPlayer(sender, "Registration failed!", true);
-                return;
-            }
-            int uID = userDM.CreateUserAccount(username, password);
-            if (uID != 0)
-            {
-                API.sendNotificationToPlayer(sender, "Registration complete!", true);
-                API.sendChatMessageToPlayer(sender, "Thank you for registering!");
-                PlayerLoginSuccessfull(sender, uID);
-            }
-            else
-            {
-                API.sendNotificationToPlayer(sender, "Failed to register!", true);
-                API.sendChatMessageToPlayer(sender, "~r~Failed to register!");
+                if (userDM.UserNameExists(username))
+                {
+                    API.sendChatMessageToPlayer(sender, "~r~Failed to register, because username exists already!");
+                    API.sendNotificationToPlayer(sender, "Registration failed!", true);
+                    return;
+                }
+                int uID = userDM.CreateUserAccount(username, password);
+                if (uID != 0)
+                {
+                    API.sendNotificationToPlayer(sender, "Registration complete!", true);
+                    API.sendChatMessageToPlayer(sender, "Thank you for registering!");
+                    PlayerLoginSuccessfull(sender, uID);
+                }
+                else
+                {
+                    API.sendNotificationToPlayer(sender, "Failed to register!", true);
+                    API.sendChatMessageToPlayer(sender, "~r~Failed to register!");
+                }
             }
         }
 
@@ -248,6 +319,16 @@ namespace TheDarkZone
         #region "Functions"
 
         #region "Player Functions"
+
+        private int PlayerAdminLevel(NetHandle netHandle)
+        {
+            return API.getEntityData(netHandle, keys.KEY_USER_ADMIN_LEVEL);
+        }
+
+        private bool PlayerLoggedIn(NetHandle nethandle)
+        {
+            return API.getEntityData(nethandle, keys.KEY_USER_AUTHENTICATED);
+        }
 
         private void PlayerLoginSuccessfull(Client sender, int id)
         {
@@ -469,6 +550,32 @@ namespace TheDarkZone
             }
         }
 
+        #endregion
+
+        #region "Random functions"
+
+        private string GetChatTimeStamp()
+        {
+            return "~c~[" + DateTime.Now.ToString("HH:mm") + "]";
+        }
+
+        private double GetRandomDoubleBetween(int min, int max)
+        {
+            Random r = new Random();
+            return double.Parse((r.Next(min, max).ToString()));
+        }
+
+        private double GetRandomIntBetween(int min, int max)
+        {
+            Random r = new Random();
+            return r.Next(min, max);
+        }
+
+        private float GetRandomFloatBetween(int min, int max)
+        {
+            Random r = new Random();
+            return float.Parse((r.Next(min, max)).ToString());
+        }
         #endregion
 
         #endregion

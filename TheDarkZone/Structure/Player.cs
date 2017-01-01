@@ -19,9 +19,9 @@ namespace TheDarkZone.Structure
         public bool hasVehicle { get; set; }
         public int roleLevel { get; set; }
         public int userID { get; set; }
-        public UserDataManager udm { get; set; }
 
         private KeyManager keys;
+        private UserDataManager udm;
         
         #endregion"
 
@@ -41,6 +41,10 @@ namespace TheDarkZone.Structure
 
         }
 
+        #endregion
+
+        #region "Public functions"
+
         public void LoadPlayerData()
         {
             if (userID != 0)
@@ -57,7 +61,6 @@ namespace TheDarkZone.Structure
 
         }
 
-        #endregion
-
+        #endregion 
     }
 }
