@@ -25,13 +25,7 @@ namespace TheDarkZone
         private int ClearVehicleAfterTicks = 10;
         private Vector3 lobbySpawnPoint = new Vector3(-75.33064f, -819.012f, 326.175f);
         private Vector3 lobbyRotation = new Vector3(0, 0, -89.63917);
-
-        #region "Data Keys"
-
-        private string KEY_USER_AUTHENTICATED = "USER_AUTHENTICATED";
-        private string KEY_USER_ID = "USER_ID";
-
-        #endregion
+        private KeyManager keys = new KeyManager();
 
         #endregion
 
@@ -47,6 +41,7 @@ namespace TheDarkZone
             API.onVehicleDeath += onVehicleDeath;
             API.onPlayerEnterVehicle += onPlayerEnterVehicle;
             API.onPlayerPickup += onPlayerPickup;
+            API.onChatMessage += onChatMessage;
         }
 
         #endregion
@@ -56,12 +51,13 @@ namespace TheDarkZone
         public void onPlayerConnected(Client sender)
         {
             PutPlayerInLobby(sender);
-            Players.Add(new Player(sender, sender.handle));
+            Players.Add(new Player(sender, userDM, keys));
             SetPlayerCleanEntityData(sender);
             API.setPlayerSkin(sender, (PedHash)(788443093));
             API.sendChatMessageToAll(sender.name + " connected to the server!");
             API.sendChatMessageToPlayer(sender, "Please ~g~/register [username] [password]");
-            API.sendChatMessageToPlayer(sender, "or ~g~/login [username] [password] ~w~if you already have an account.");
+            API.sendChatMessageToPlayer(sender, "or ~g~/login [username] [password]");
+            API.sendChatMessageToPlayer(sender, "if you already have an account.");
             API.sendNotificationToPlayer(sender, "Welcome! Please register or login to continue!", true);
         }
 
@@ -77,7 +73,7 @@ namespace TheDarkZone
 
         public void onPlayerRespawn(Client sender)
         {
-            if (API.getEntityData(sender.handle, KEY_USER_AUTHENTICATED))
+            if (API.getEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED))
             {
                 PlayerFreshSpawn(sender);
             }
@@ -111,7 +107,7 @@ namespace TheDarkZone
             API.consoleOutput("The Dark Zone script loaded");
             API.setWeather(11);
             API.setTime(5, 0);
-            userDM = new UserDataManager(this);
+            userDM = new UserDataManager();
         }
 
         public void onVehicleDeath(NetHandle vehicle)
@@ -149,6 +145,19 @@ namespace TheDarkZone
             API.sendChatMessageToPlayer(sender, "pickup");
         }
 
+        public void onChatMessage(Client sender, string message, CancelEventArgs e)
+        {
+            if(API.getEntityData(sender.handle, keys.KEY_USER_ADMIN_LEVEL) == 3)
+            {
+                API.sendChatMessageToAll("[ADMIN][~R~" + sender.name + "~w~]: " + message);
+            }
+            else
+            {
+                API.sendChatMessageToAll("[~y~" + sender.name + "~w~]: " + message);
+            }
+            e.Cancel = true;
+        }
+
         #endregion 
 
         #region "Commands"
@@ -173,7 +182,7 @@ namespace TheDarkZone
         [Command("v")]
         public void SpawnCarCommand(Client sender, VehicleHash model)
         {
-            Player p = GetPlayerClientObj(sender);
+            Player p = GetPlayerObjFromClient(sender);
             if (p.hasVehicle)
             {
                 API.deleteEntity(p.vehicle);
@@ -242,17 +251,36 @@ namespace TheDarkZone
 
         private void PlayerLoginSuccessfull(Client sender, int id)
         {
+            foreach (Player p in Players)
+            {
+                if (sender == p.client)
+                {
+                    p.userID = id;
+                    p.LoadPlayerData();
+                    break;
+                }
+            }
+            
             API.sendChatMessageToPlayer(sender, "~g~You are now logged in.");
             API.sendNotificationToPlayer(sender, "You have successfully logged in!", false);
-            API.setEntityData(sender.handle, KEY_USER_AUTHENTICATED, true);
-            API.setEntityData(sender.handle, KEY_USER_ID, id);
+            API.setEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED, true);
+            API.setEntityData(sender.handle, keys.KEY_USER_ID, id);
+            API.setEntityDimension(sender, 0);
+            API.getPlayerFromHandle(sender.handle).invincible = false;
             PlayerFreshSpawn(sender);
+            API.sendChatMessageToPlayer(sender, "~r~This server is currently under FULL DEVELOPMENT!");
+            API.sendChatMessageToPlayer(sender, "~r~For now you are able to spawn vehicles with ~y~/v [vehiclename]");
+            API.sendChatMessageToPlayer(sender, "~r~We are working on this server on a daily basis so");
+            API.sendChatMessageToPlayer(sender, "~r~make sure to check us out often!");
+            API.sendChatMessageToPlayer(sender, "~g~Our goal for this server: character progression, missions");
+            API.sendChatMessageToPlayer(sender, "~g~survival elements, pvp, leaderbords and alot more!");
         }
 
         private void SetPlayerCleanEntityData(Client sender)
         {
-            API.setEntityData(sender.handle, KEY_USER_AUTHENTICATED, false);
-            API.setEntityData(sender.handle, KEY_USER_ID, 0);
+            API.setEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED, false);
+            API.setEntityData(sender.handle, keys.KEY_USER_ID, 0);
+            API.setEntityData(sender.handle, keys.KEY_USER_ADMIN_LEVEL, 0);
         }
 
         private void PutPlayerInLobby(Client sender)
@@ -260,6 +288,8 @@ namespace TheDarkZone
             API.setEntityPosition(sender, lobbySpawnPoint);
             API.setEntityRotation(sender, lobbyRotation);
             API.freezePlayer(sender, true);
+            API.setEntityDimension(sender, 1);
+            API.getPlayerFromHandle(sender.handle).invincible = true;
         }
 
         private void PlayerFreshSpawn(Client sender)
@@ -268,13 +298,20 @@ namespace TheDarkZone
             API.setEntityPosition(sender.handle, new Vector3(-276.4822, -891.2561, 1066.544));
             API.setEntityRotation(sender.handle, new Vector3(-5.371634, 7.375679, 19.1878));
             API.givePlayerWeapon(sender, (WeaponHash)(-72657034), 1, true, true);
+            API.givePlayerWeapon(sender, (WeaponHash)(-619010992), 9999, false, false);
+            API.givePlayerWeapon(sender, (WeaponHash)(-1074790547), 9999, false, false);
+            API.givePlayerWeapon(sender, (WeaponHash)(2132975508), 9999, false, false);
+            API.givePlayerWeapon(sender, (WeaponHash)(100416529), 9999, false, false);
+            API.givePlayerWeapon(sender, (WeaponHash)(-1312131151), 9999, false, false);
+            API.givePlayerWeapon(sender, (WeaponHash)(-619010992), 9999, false, false);
+
         }
 
         private Player GetPlayerClientObjByHandle(NetHandle handle)
         {
             foreach (Player p in Players)
             {
-                if (p.netHandle == handle)
+                if (p.client.handle == handle)
                 {
                     return p;
                 }
@@ -282,7 +319,7 @@ namespace TheDarkZone
             return new Player();
         }
 
-        private Player GetPlayerClientObj(Client sender)
+        private Player GetPlayerObjFromClient(Client sender)
         {
             foreach (Player p in Players)
             {

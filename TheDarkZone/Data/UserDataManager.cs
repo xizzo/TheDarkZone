@@ -8,6 +8,7 @@ using GTANetworkShared;
 using System.IO;
 using MySql.Data.MySqlClient;
 using System.Security.Cryptography;
+using TheDarkZone.Structure;
 
 namespace TheDarkZone.Data
 {
@@ -53,7 +54,6 @@ namespace TheDarkZone.Data
             catch (Exception ex)
             {
                 API.shared.consoleOutput("Error checking if username exists: " + ex.Message);
-
             }
             return false;
         }
@@ -163,7 +163,40 @@ namespace TheDarkZone.Data
                 API.shared.consoleOutput("Error getting user ID: " + ex.Message);
             }
             return 0;
-        } 
+        }
+
+        public Boolean RetrievePlayerDataFromDB(Player player)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    strSQL = "SELECT role FROM USER_Accounts WHERE id = @id";
+                    using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                    {
+                        cmd.Parameters.AddWithValue("@id", player.userID);
+                        using (MySqlDataReader rdr = cmd.ExecuteReader())
+                        {
+                            if (rdr.HasRows)
+                            {
+                                while (rdr.Read())
+                                {
+                                    player.roleLevel = (int)rdr["role"];
+
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                API.shared.consoleOutput("Failed to retrieve player data: " + ex.Message);
+            }
+            return false;
+        }
 
         #endregion 
 
@@ -174,7 +207,7 @@ namespace TheDarkZone.Data
             string conStr = "";
             try
             {
-                using (StreamReader rdr = new StreamReader(@"C:\constr.txt"))
+                using (StreamReader rdr = new StreamReader("constr.txt"))
                 {
                     conStr = rdr.ReadToEnd();
                 }

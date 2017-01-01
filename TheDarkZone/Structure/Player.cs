@@ -15,25 +15,46 @@ namespace TheDarkZone.Structure
         #region "Variables"
 
         public Client client { get; set; }
-        public NetHandle netHandle { get; set; }
         public NetHandle vehicle { get; set; }
         public bool hasVehicle { get; set; }
-        public UserData userData { get; set; }
+        public int roleLevel { get; set; }
+        public int userID { get; set; }
+        public UserDataManager udm { get; set; }
+
+        private KeyManager keys;
         
         #endregion"
 
         #region "Initialize"
 
-        public Player()
+        public Player(Client client, UserDataManager udm, KeyManager keys)
         {
+            this.userID = 0;
             this.hasVehicle = false;
+            this.udm = udm;
+            this.keys = keys;
+            this.client = client;
         }
 
-        public Player(Client client, NetHandle netHandle)
+        public Player()
         {
-            this.client = client;
-            this.netHandle = netHandle;
-            this.hasVehicle = false;
+
+        }
+
+        public void LoadPlayerData()
+        {
+            if (userID != 0)
+            {
+                udm.RetrievePlayerDataFromDB(this);
+                API.shared.consoleOutput("Loaded player data for user: " + client.name);
+
+                API.shared.setEntityData(client.handle, keys.KEY_USER_ADMIN_LEVEL, roleLevel);
+            }
+            else
+            {
+                API.shared.consoleOutput("Failed to load player data because userid = 0!");
+            }
+
         }
 
         #endregion

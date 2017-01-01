@@ -46,7 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Data\UserData.cs" />
+    <Compile Include="Data\KeyManager.cs" />
     <Compile Include="Data\UserDataManager.cs" />
     <Compile Include="Structure\item.cs" />
     <Compile Include="Structure\Player.cs" />
