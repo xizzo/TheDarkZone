@@ -32,7 +32,7 @@ namespace TheDarkZone
 
         #region "Missions"
 
-        mission1 miss1;
+        CollectMission collectMisson;
 
         #endregion
 
@@ -56,7 +56,7 @@ namespace TheDarkZone
 
         private void LoadMissions()
         {
-            miss1 = new mission1(this);
+            collectMisson = new CollectMission(this);
         }
 
         #endregion
@@ -69,7 +69,7 @@ namespace TheDarkZone
             Players.Add(new Player(sender, userDM, keys));
             SetPlayerCleanEntityData(sender);
             API.setPlayerSkin(sender, (PedHash)(788443093));
-            API.sendChatMessageToAll("~c~[" + DateTime.Now.ToString("HH:mm") + "] " + sender.name + " joined the server!");
+            API.sendChatMessageToAll(GetChatTimeStamp() + " " + sender.name + " joined the server!");
             API.sendChatMessageToPlayer(sender, "Please ~g~/register [username] [password]");
             API.sendChatMessageToPlayer(sender, "or ~g~/login [username] [password]");
             API.sendChatMessageToPlayer(sender, "if you already have an account.");
@@ -109,8 +109,12 @@ namespace TheDarkZone
                     {
                         API.deleteEntity(p.vehicle);
                     }
-
-                    API.sendChatMessageToAll("~c~" + sender.name + " left the server! (" + reason + ")");
+                    if ((bool)API.getEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION))
+                    {
+                        ResetAndDeleteCollShapes(sender);
+                    }
+                    p.SavePlayerData();
+                    API.sendChatMessageToAll("~c~" + GetChatTimeStamp() + " " + sender.name + " left the server! (" + reason + ")");
                     Players.Remove(p);
                     break;
                 }
@@ -175,6 +179,15 @@ namespace TheDarkZone
 
         public void onPlayerDeath(Client sender, NetHandle reason, int weapon)
         {
+
+            if ((bool)API.getEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION))
+            {
+                API.setEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION, false);
+                ResetAndDeleteCollShapes(sender);
+                API.sendNotificationToPlayer(sender, "~o~[~r~MISSION~o~] Mission failed!");
+            }
+
+
             if (!reason.IsNull)
             {
                 foreach (Player p in Players)
@@ -182,21 +195,46 @@ namespace TheDarkZone
                     if (p.client.handle == reason)
                     {
                         if (p.client.name == sender.name) break;
-                        API.sendChatMessageToAll(GetChatTimeStamp() + " " + sender.name + " was killed by " + p.client.name+ ".");
-                        API.sendNotificationToAll(sender.name + " was killed by " + p.client.name);
+                        API.sendNotificationToAll("~g~" + sender.name + " ~w~was killed by ~r~" + p.client.name);
                         return;
                     }
                 }
             }
-            API.sendNotificationToAll(sender.name + " died");
+            API.sendNotificationToAll(sender.name + " ~r~died");
         }
 
         public void onClientEventTrigger(Client sender, string name, object[] args)
         {
+            if (!PlayerLoggedIn(sender))
+            {
+                API.sendNotificationToPlayer(sender, "~r~You need to be logged in first!");
+                return;
+            }
             switch (name)
             {
-                case "test":
-                    // do something
+                case "RequestNewMission":
+                    if ((bool)API.getEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION))
+                    {
+                        API.sendNotificationToPlayer(sender, "~r~You already have an active mission!");
+                        break;
+                    }
+                    API.sendNotificationToAll("~g~" + sender.name + " ~w~started a ~o~mission");
+                    API.setEntityData(sender, keys.KEY_MISSION_CURR_STEP, 0);
+                    API.setEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION, true);
+                    collectMisson.NextStep(sender);
+                    break;
+                case "CancelMission" :
+                    if (!(bool)API.getEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION))
+                    {
+                        API.sendNotificationToPlayer(sender, "~r~You don't have an active mission!");
+                        break;
+                    }
+                    API.setEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION, false);
+                    ResetAndDeleteCollShapes(sender);
+                    API.sendNotificationToPlayer(sender, "~r~Mission has been cancelled!");
+                    break;
+                case "Suicide":
+                    API.setPlayerHealth(sender, -1);
                     break;
             }
         }
@@ -205,14 +243,14 @@ namespace TheDarkZone
             Client sender = API.getPlayerFromHandle(entity);
             if (sender == null) return;
             if (shape.getData(keys.KEY_MARKER_CURR_PLAYERID) != PlayerUserID(sender.handle)) return;
+            API.shared.triggerClientEvent(sender, "PlayEnterCheckPointSound");
             switch((int)shape.getData(keys.KEY_MARKER_CURR_MISSION))
             {
                 case 1:
-                    miss1.NextStep(sender, shape);
+                    collectMisson.NextStep(sender, shape);
                     break;
             }
-            API.triggerClientEvent(sender, "DestroyLastMissionMarker");
-            API.deleteColShape(shape);
+
         }
 
         #endregion 
@@ -226,13 +264,6 @@ namespace TheDarkZone
         {
             API.setPlayerSkin(sender, model);
             API.sendNativeToPlayer(sender, 0x45EEE61580806D63, sender.handle);
-        }
-
-        [Command("mission")]
-        public void Mission(Client sender)
-        {
-            API.setEntityData(sender, keys.KEY_MISSION_CURR_STEP, 0);
-            miss1.NextStep(sender);
         }
 
         #endregion
@@ -297,7 +328,7 @@ namespace TheDarkZone
                 var t = Task.Run(async delegate
                 {
                     API.sendChatMessageToPlayer(sender, "~g~Target " + target.name + " is beeing nuked!");
-                    API.sendNotificationToAll("A rocket strike was ordered on " + target.name);
+                    API.sendNotificationToAll("A ~y~rocket strike ~w~was ordered on ~r~" + target.name);
                     for (int i = 0; i < 20; i++)
                     {
                         if (API.getPlayerHealth(target) == 0) break;
@@ -325,7 +356,7 @@ namespace TheDarkZone
                 API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", pos, new Vector3(), 1f);
                 API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", targetPos, new Vector3(), 1f);
                 API.setEntityPosition(sender.handle, targetPos);
-                API.sendNotificationToPlayer(target, "You have teleported to " + target.name);
+                API.sendNotificationToPlayer(sender , "You have teleported to " + target.name);
             }
         }
 
@@ -410,7 +441,29 @@ namespace TheDarkZone
 
         #region "Functions"
 
-        #region "Player Get Data functions"
+        #region "Mission functions"
+
+        private void ResetAndDeleteCollShapes(Client client)
+        {
+            if (API.getEntityData(client, keys.KEY_MISSION_CURR_COLL) != null)
+            {
+                API.deleteColShape(API.getEntityData(client, keys.KEY_MISSION_CURR_COLL));
+                API.setEntityData(client, keys.KEY_MISSION_CURR_COLL, null);
+            }
+            API.triggerClientEvent(client, "DestroyLastMissionMarker");
+        }
+
+        #endregion
+
+        #region "Player Get Set Data functions"
+
+        public void AddPlayerMoney(Client client, int money)
+        {
+            int currMoney = (int)API.getEntitySyncedData(client, keys.KEY_USER_MONEY);
+            currMoney += money;
+            API.setEntitySyncedData(client, keys.KEY_USER_MONEY, currMoney);
+            API.sendNotificationToPlayer(client, "You have received ~g~$" + money);
+        }
 
         public int PlayerUserID(NetHandle nethandle)
         {
@@ -456,6 +509,7 @@ namespace TheDarkZone
             API.sendChatMessageToPlayer(sender, "~r~make sure to check us out often!");
             API.sendChatMessageToPlayer(sender, "~g~Our goal for this server: character progression, missions");
             API.sendChatMessageToPlayer(sender, "~g~survival elements, pvp, leaderbords and alot more!");
+            API.sendChatMessageToPlayer(sender, "~y~ F1 = player menu, F2 = mission menu");
         }
 
         private void SetPlayerCleanEntityData(Client sender)
@@ -463,9 +517,13 @@ namespace TheDarkZone
             API.setEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED, false);
             API.setEntityData(sender.handle, keys.KEY_USER_ID, 0);
             API.setEntityData(sender.handle, keys.KEY_USER_ADMIN_LEVEL, 0);
+            API.setEntityData(sender.handle, keys.KEY_USER_HAS_ACTIVE_MISSION, false);
 
             API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_COLL, null);
             API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_STEP, 0);
+            API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_COLLECTION_ID, 0);
+
+            API.setEntitySyncedData(sender, keys.KEY_USER_MONEY, 0);
         }
 
         private void PutPlayerInLobby(Client sender)
@@ -663,19 +721,19 @@ namespace TheDarkZone
             return "~c~[" + DateTime.Now.ToString("HH:mm") + "]";
         }
 
-        private double GetRandomDoubleBetween(int min, int max)
+        public double GetRandomDoubleBetween(int min, int max)
         {
             Random r = new Random();
             return double.Parse((r.Next(min, max).ToString()));
         }
 
-        private double GetRandomIntBetween(int min, int max)
+        public int GetRandomIntBetween(int min, int max)
         {
             Random r = new Random();
             return r.Next(min, max);
         }
 
-        private float GetRandomFloatBetween(int min, int max)
+        public float GetRandomFloatBetween(int min, int max)
         {
             Random r = new Random();
             return float.Parse((r.Next(min, max)).ToString());

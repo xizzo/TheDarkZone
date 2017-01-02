@@ -99,6 +99,7 @@ namespace TheDarkZone.Data
 
         public int CreateUserAccount(string username, string password)
         {
+            int userID = 0;
             try
             {
                 var newSalt = GenerateSalt(10);
@@ -122,16 +123,32 @@ namespace TheDarkZone.Data
 
                         cmd.ExecuteNonQuery();
                         API.shared.consoleOutput("Created new user account: " + username);
-                        return GetUserID(username);
+                        userID = GetUserID(username);
                     }
                 }
+                CreatePleayerInventoryRow(userID);
             }
             catch (Exception ex)
             {
                 API.shared.consoleOutput("Error creating new user account: " + ex.Message);
 
             }
-            return 0;
+
+            return userID;
+        }
+
+        private void CreatePleayerInventoryRow(int userID)
+        {
+            using (MySqlConnection con = new MySqlConnection(connectionString))
+            {
+                con.Open();
+                strSQL = "INSERT INTO USER_Inventory (userid) VALUES (@userid)";
+                using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                {
+                    cmd.Parameters.AddWithValue("@userid", userID);
+                    cmd.ExecuteNonQuery();
+                }
+            }
         }
 
         public int GetUserID(string username)
@@ -172,7 +189,8 @@ namespace TheDarkZone.Data
                 using (MySqlConnection con = new MySqlConnection(connectionString))
                 {
                     con.Open();
-                    strSQL = "SELECT role FROM USER_Accounts WHERE id = @id";
+                    strSQL = "SELECT T1.role, T2.money FROM USER_Accounts T1 ";
+                    strSQL += "INNER JOIN USER_Inventory T2 on T1.id = T2.userid WHERE id = @id";
                     using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
                     {
                         cmd.Parameters.AddWithValue("@id", player.userID);
@@ -183,7 +201,7 @@ namespace TheDarkZone.Data
                                 while (rdr.Read())
                                 {
                                     player.roleLevel = (int)rdr["role"];
-
+                                    player.money = (int)rdr["money"];
                                     return true;
                                 }
                             }
@@ -196,6 +214,28 @@ namespace TheDarkZone.Data
                 API.shared.consoleOutput("Failed to retrieve player data: " + ex.Message);
             }
             return false;
+        }
+
+        public void SavePlayerData(Player player)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    strSQL = "UPDATE USER_Inventory SET money = @money WHERE userid = @userid";
+                    using(MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                    {
+                        cmd.Parameters.AddWithValue("@money", player.money);
+                        cmd.Parameters.AddWithValue("@userid", player.userID);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                API.shared.consoleOutput("Failed to save player data: " + ex.Message);
+            }
         }
 
         #endregion 

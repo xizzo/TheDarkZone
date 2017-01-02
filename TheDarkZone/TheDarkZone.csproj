@@ -48,6 +48,8 @@
   <ItemGroup>
     <Compile Include="Data\KeyManager.cs" />
     <Compile Include="Data\UserDataManager.cs" />
+    <Compile Include="Missions\CollectMissionInfo.cs" />
+    <Compile Include="Missions\CollectMission.cs" />
     <Compile Include="Structure\item.cs" />
     <Compile Include="Structure\Player.cs" />
     <Compile Include="Structure\Veh.cs" />
