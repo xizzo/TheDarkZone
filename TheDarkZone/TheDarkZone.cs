@@ -8,6 +8,7 @@ using GTANetworkServer;
 using GTANetworkShared;
 using TheDarkZone.Structure;
 using TheDarkZone.Data;
+using TheDarkZone.Missions;
 
 namespace TheDarkZone
 {
@@ -20,12 +21,18 @@ namespace TheDarkZone
         public static List<Veh> Vehicles = new List<Veh>();
         public static List<Item> Items = new List<Item>();
         public double currUpdateTick = 0;
+        public KeyManager keys = new KeyManager();
 
         private UserDataManager userDM;
         private int ClearVehicleAfterTicks = 10;
         private Vector3 lobbySpawnPoint = new Vector3(-75.33064f, -819.012f, 326.175f);
         private Vector3 lobbyRotation = new Vector3(0, 0, -89.63917);
-        private KeyManager keys = new KeyManager();
+
+        #endregion
+
+        #region "Missions"
+
+        mission1 miss1;
 
         #endregion
 
@@ -43,6 +50,13 @@ namespace TheDarkZone
             API.onPlayerPickup += onPlayerPickup;
             API.onChatMessage += onChatMessage;
             API.onPlayerDeath += onPlayerDeath;
+            API.onClientEventTrigger += onClientEventTrigger;
+            LoadMissions();
+        }
+
+        private void LoadMissions()
+        {
+            miss1 = new mission1(this);
         }
 
         #endregion
@@ -96,7 +110,7 @@ namespace TheDarkZone
                         API.deleteEntity(p.vehicle);
                     }
 
-                    API.sendChatMessageToAll(sender.name + " left the server! (" + reason + ")");
+                    API.sendChatMessageToAll("~c~" + sender.name + " left the server! (" + reason + ")");
                     Players.Remove(p);
                     break;
                 }
@@ -167,21 +181,69 @@ namespace TheDarkZone
                 {
                     if (p.client.handle == reason)
                     {
+                        if (p.client.name == sender.name) break;
                         API.sendChatMessageToAll(GetChatTimeStamp() + " " + sender.name + " was killed by " + p.client.name+ ".");
                         API.sendNotificationToAll(sender.name + " was killed by " + p.client.name);
                         return;
                     }
                 }
             }
-            API.sendChatMessageToAll(GetChatTimeStamp() + " " + sender.name + " has died.");
             API.sendNotificationToAll(sender.name + " died");
+        }
+
+        public void onClientEventTrigger(Client sender, string name, object[] args)
+        {
+            switch (name)
+            {
+                case "test":
+                    // do something
+                    break;
+            }
+        }
+
+        public void onEntityEnterColShape(ColShape shape, NetHandle entity){
+            Client sender = API.getPlayerFromHandle(entity);
+            if (sender == null) return;
+            if (shape.getData(keys.KEY_MARKER_CURR_PLAYERID) != PlayerUserID(sender.handle)) return;
+            switch((int)shape.getData(keys.KEY_MARKER_CURR_MISSION))
+            {
+                case 1:
+                    miss1.NextStep(sender, shape);
+                    break;
+            }
+            API.triggerClientEvent(sender, "DestroyLastMissionMarker");
+            API.deleteColShape(shape);
         }
 
         #endregion 
 
         #region "Commands"
 
+        #region "Player commands"
+
+        [Command("skin")]
+        public void ChangeSkinCommand(Client sender, PedHash model)
+        {
+            API.setPlayerSkin(sender, model);
+            API.sendNativeToPlayer(sender, 0x45EEE61580806D63, sender.handle);
+        }
+
+        [Command("mission")]
+        public void Mission(Client sender)
+        {
+            API.setEntityData(sender, keys.KEY_MISSION_CURR_STEP, 0);
+            miss1.NextStep(sender);
+        }
+
+        #endregion
+
         #region "Admin commands"
+
+        [Command("testpos")]
+        public void testpos(Client sender)
+        {
+            API.setEntityPosition(sender, lobbySpawnPoint);
+        }
 
         [Command("savepos")]
         public void SavePlayerPos(Client sender)
@@ -254,13 +316,43 @@ namespace TheDarkZone
         }
 
         [Command("tp")]
-        public void Teleport(Client sender, Client target)
+        public void TeleportTo(Client sender, Client target)
+        {
+            if (PlayerAdminLevel(sender.handle) != 4 && PlayerLoggedIn(sender.handle))
+            {
+                Vector3 pos = sender.position;
+                Vector3 targetPos = new Vector3(target.position.X + 4, target.position.Y + 4, target.position.Z);
+                API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", pos, new Vector3(), 1f);
+                API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", targetPos, new Vector3(), 1f);
+                API.setEntityPosition(sender.handle, targetPos);
+                API.sendNotificationToPlayer(target, "You have teleported to " + target.name);
+            }
+        }
+
+        [Command("tptm")]
+        public void TeleportToMe(Client sender, Client target)
         {
             if (PlayerAdminLevel(sender.handle) == 3)
             {
-                Vector3 pos = API.getEntityPosition(sender.handle);
+                Vector3 pos = target.position;
+                Vector3 targetPos = new Vector3(sender.position.X + 4, sender.position.Y + 4, sender.position.Z);
                 API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", pos, new Vector3(), 1f);
-                API.setEntityPosition(sender.handle, API.getEntityPosition(target.handle));
+                API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", targetPos, new Vector3(), 1f);
+                API.setEntityPosition(target, targetPos);
+
+                API.sendNotificationToPlayer(sender, target.name + " has been teleported to you");
+                API.sendNotificationToPlayer(target, "You have been teleported to " + sender.name);
+            }
+        }
+
+        [Command("serverinfo")]
+        public void ServerInfo(Client sender)
+        {
+            if (PlayerAdminLevel(sender.handle) == 3)
+            {
+                API.sendChatMessageToAll("~g~This server will have a gamemode based on the darkzone of The Divison.");
+                API.sendChatMessageToAll("~g~Players will be able to progress their characters by doing missions, survive and pvp.");
+                API.sendChatMessageToAll("~g~There will be randomized events like loot drops in the world for which players have to fight for.");
             }
         }
 
@@ -318,17 +410,26 @@ namespace TheDarkZone
 
         #region "Functions"
 
-        #region "Player Functions"
+        #region "Player Get Data functions"
 
-        private int PlayerAdminLevel(NetHandle netHandle)
+        public int PlayerUserID(NetHandle nethandle)
+        {
+            return API.getEntityData(nethandle, keys.KEY_USER_ID);
+        }
+
+        public int PlayerAdminLevel(NetHandle netHandle)
         {
             return API.getEntityData(netHandle, keys.KEY_USER_ADMIN_LEVEL);
         }
 
-        private bool PlayerLoggedIn(NetHandle nethandle)
+        public bool PlayerLoggedIn(NetHandle nethandle)
         {
             return API.getEntityData(nethandle, keys.KEY_USER_AUTHENTICATED);
         }
+
+        #endregion
+
+        #region "Player Functions"
 
         private void PlayerLoginSuccessfull(Client sender, int id)
         {
@@ -362,6 +463,9 @@ namespace TheDarkZone
             API.setEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED, false);
             API.setEntityData(sender.handle, keys.KEY_USER_ID, 0);
             API.setEntityData(sender.handle, keys.KEY_USER_ADMIN_LEVEL, 0);
+
+            API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_COLL, null);
+            API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_STEP, 0);
         }
 
         private void PutPlayerInLobby(Client sender)
