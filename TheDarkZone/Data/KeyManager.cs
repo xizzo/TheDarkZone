@@ -22,5 +22,10 @@ namespace TheDarkZone.Data
         public string KEY_MARKER_CURR_MISSION = "MARKER_CURR_MISSION";
         public string KEY_MARKER_CURR_PLAYERID = "MARKER_CURR_PLAYERID";
 
+        public string KEY_VEHICLE_RESPAWNABLE = "VEHICLE_RESPAWNABLE";
+        public string KEY_VEHICLE_RESPAWN_POS = "VEHICLE_RESPAWN_POS";
+        public string KEY_VEHICLE_RESPAWN_ROT = "VEHICLE_RESPAWN_ROT";
+        public string KEY_VEHICLE_MODEL = "VEHICLE_MODEL";
+
     }
 }

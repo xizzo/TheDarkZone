@@ -106,26 +106,26 @@ namespace TheDarkZone.Missions
                 {
                     CollectMissionInfo missionInfo = new CollectMissionInfo();
                     missionInfo.collectPickupPos = new Vector3();
-                    API.shared.consoleOutput("new mission info");
                     foreach (XElement elemInfo in elemMission.Elements())
                     {
+                        string currValue = elemInfo.Value;
+                        if (mainScript.inDebug) currValue = currValue.Replace('.', ',');
                         switch (elemInfo.Name.ToString())
                         {
                             case "xpos":
-                                missionInfo.collectPickupPos.X = float.Parse(elemInfo.Value);
+                                missionInfo.collectPickupPos.X = float.Parse(currValue);
                                 break;
                             case "ypos":
-                                missionInfo.collectPickupPos.Y = float.Parse(elemInfo.Value);
+                                missionInfo.collectPickupPos.Y = float.Parse(currValue);
                                 break;
                             case "zpos":
-                                missionInfo.collectPickupPos.Z = float.Parse(elemInfo.Value);
+                                missionInfo.collectPickupPos.Z = float.Parse(currValue);
                                 break;
                             case "reward":
-                                missionInfo.moneyReward = int.Parse(elemInfo.Value);
+                                missionInfo.moneyReward = int.Parse(currValue);
                                 break;
                         }
                     }
-                    API.shared.consoleOutput(missionInfo.collectPickupPos.X + " : " + missionInfo.collectPickupPos.Y + " : " + missionInfo.collectPickupPos.Z);
                     missionInfos.Add(missionInfo);
                 }
             }

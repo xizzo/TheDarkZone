@@ -9,6 +9,7 @@ using GTANetworkShared;
 using TheDarkZone.Structure;
 using TheDarkZone.Data;
 using TheDarkZone.Missions;
+using TheDarkZone.Managers;
 
 namespace TheDarkZone
 {
@@ -17,9 +18,11 @@ namespace TheDarkZone
 
         #region "Variables"
 
-        public static List<Player> Players = new List<Player>();
-        public static List<Veh> Vehicles = new List<Veh>();
-        public static List<Item> Items = new List<Item>();
+        public bool inDebug = System.IO.Directory.Exists(@"C:\");
+
+        public List<Player> Players = new List<Player>();
+        public List<Veh> Vehicles = new List<Veh>();
+        public List<Item> Items = new List<Item>();
         public double currUpdateTick = 0;
         public KeyManager keys = new KeyManager();
 
@@ -27,6 +30,10 @@ namespace TheDarkZone
         private int ClearVehicleAfterTicks = 10;
         private Vector3 lobbySpawnPoint = new Vector3(-75.33064f, -819.012f, 326.175f);
         private Vector3 lobbyRotation = new Vector3(0, 0, -89.63917);
+
+        private VehicleManager vehManager;
+
+        static private Random rnd = new Random();
 
         #endregion
 
@@ -52,6 +59,7 @@ namespace TheDarkZone
             API.onPlayerDeath += onPlayerDeath;
             API.onClientEventTrigger += onClientEventTrigger;
             LoadMissions();
+            if (inDebug) API.consoleOutput("!!!!! DEBUG MODE !!!!");
         }
 
         private void LoadMissions()
@@ -78,12 +86,12 @@ namespace TheDarkZone
 
         public void onUpdate()
         {
-            currUpdateTick++;
-            if (currUpdateTick == 2000)
-            {
-                DoVehicleCleanup();
-                currUpdateTick = 0;
-            }
+            //currUpdateTick++;
+            //if (currUpdateTick == 2000)
+            //{
+            //    DoVehicleCleanup();
+            //    currUpdateTick = 0;
+            //}
         }
 
         public void onPlayerRespawn(Client sender)
@@ -127,27 +135,21 @@ namespace TheDarkZone
             API.setWeather(11);
             API.setTime(5, 0);
             userDM = new UserDataManager();
+            vehManager = new VehicleManager(this);
         }
 
         public void onVehicleDeath(NetHandle vehicle)
         {
-            if (API.getEntityData(vehicle, "RESPAWNABLE") == true)
+            if(API.hasEntityData(vehicle, keys.KEY_VEHICLE_RESPAWNABLE))
             {
                 API.delay(8000, true, () =>
                 {
-                    var model = API.getEntityModel(vehicle);
-                    var spawnPos = API.getEntityData(vehicle, "SPAWN_POS");
-                    var spawnRot = API.getEntityData(vehicle, "SPAWN_ROT");
+                    VehicleHash vModel = API.getEntityData(vehicle, keys.KEY_VEHICLE_MODEL);
+                    Vector3 spawnPos = API.getEntityData(vehicle, keys.KEY_VEHICLE_RESPAWN_POS);
+                    Vector3 spawnRot = API.getEntityData(vehicle, keys.KEY_VEHICLE_RESPAWN_ROT);
+                    CreateRespawnableVehicle(vModel, spawnPos, spawnRot);
 
                     API.deleteEntity(vehicle);
-
-                    var veh = API.createVehicle((VehicleHash)model, spawnPos, spawnRot, 0, 0);
-
-                    API.setEntityData(veh, "RESPAWNABLE", true);
-                    API.setEntityData(veh, "SPAWN_POS", spawnPos);
-                    API.setEntityData(veh, "SPAWN_ROT", spawnRot);
-                    API.setEntityData(veh, "HasBeenUsed", false);
-                    API.setEntityData(veh, "CleanupTicks", 0);
                 });
             }
         }
@@ -276,18 +278,29 @@ namespace TheDarkZone
             API.setEntityPosition(sender, lobbySpawnPoint);
         }
 
+        [Command("sv")]
+        public void SaveVehiclePos(Client sender)
+        {
+            if (PlayerAdminLevel(sender.handle) == 3)
+            {
+                SaveVehiclePosInXmlFormat(API.getPlayerFromHandle(sender.handle).position, API.getPlayerFromHandle(sender.handle).rotation);
+            }
+        }
+
         [Command("savepos")]
         public void SavePlayerPos(Client sender)
         {
-
-            var rot = API.getEntityRotation(sender.handle);
-            var pos = sender.position;
-
-            API.consoleOutput(rot + "  :  " + pos);
-
-            using (StreamWriter writer = new StreamWriter(@"C:\pos.txt", true))
+            if (PlayerAdminLevel(sender.handle) == 3)
             {
-                writer.WriteLine(rot + "  :  " + pos);
+                var rot = API.getEntityRotation(sender.handle);
+                var pos = sender.position;
+
+                API.consoleOutput(rot + "  :  " + pos);
+
+                using (StreamWriter writer = new StreamWriter(@"C:\pos.txt", true))
+                {
+                    writer.WriteLine(rot + "  :  " + pos);
+                }
             }
         }
 
@@ -583,97 +596,14 @@ namespace TheDarkZone
 
         #region "Vehicle functions"
 
-        private void GetAllVehicleData()
+        public void CreateRespawnableVehicle(VehicleHash vehicleHash, Vector3 spawnPos, Vector3 spawnRot)
         {
-            using (StreamReader rdr = new StreamReader(@"resources\airportstrip\vehicles.txt"))
-            {
-                while (!rdr.EndOfStream)
-                {
-                    string s = rdr.ReadLine();
-                    string[] vehData = s.Split(';');
+            Vehicle newVeh = API.shared.createVehicle(vehicleHash, spawnPos, spawnRot, GetRandomIntBetween(0, 157), GetRandomIntBetween(0, 157));
 
-                    Vector3 pos = new Vector3(double.Parse(vehData[1]), double.Parse(vehData[2]), double.Parse(vehData[3]));
-                    Vector3 rot = new Vector3(double.Parse(vehData[4]), double.Parse(vehData[5]), double.Parse(vehData[6]));
-                    VehicleHash modelVeh = API.vehicleNameToModel(vehData[0]);
-
-                    Veh veh = new Veh(pos, rot, modelVeh);
-                    Vehicles.Add(veh);
-
-                }
-            }
-        }
-
-        private void SpawnAllVehicles()
-        {
-            API.consoleOutput("Spawning all vehicles");
-            foreach (NetHandle h in API.getAllVehicles())
-            {
-                API.deleteEntity(h);
-            }
-
-            foreach (Veh veh in Vehicles)
-            {
-                var car = API.createVehicle(veh.Hash, veh.position, veh.rotation, 0, 0);
-                API.setEntityData(car, "RESPAWNABLE", true);
-                API.setEntityData(car, "SPAWN_POS", veh.position);
-                API.setEntityData(car, "SPAWN_ROT", veh.rotation);
-                API.setEntityData(car, "HasBeenUsed", false);
-                API.setEntityData(car, "CleanupTicks", 0);
-            }
-
-        }
-
-        private void DoVehicleCleanup()
-        {
-            try
-            {
-                foreach (NetHandle veh in API.getAllVehicles())
-                {
-                    if (API.getEntityData(veh, "RESPAWNABLE"))
-                    {
-                        if (API.getEntityData(veh, "HasBeenUsed"))
-                        {
-                            bool vehInUse = false;
-                            foreach (Player p in Players)
-                            {
-                                if (API.isPlayerInAnyVehicle(p.client))
-                                {
-                                    if (API.getPlayerVehicle(p.client) == veh)
-                                    {
-                                        vehInUse = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (!vehInUse)
-                            {
-                                if (API.getEntityData(veh, "CleanupTicks") != ClearVehicleAfterTicks)
-                                {
-                                    API.setEntityData(veh, "CleanupTicks", API.getEntityData(veh, "CleanupTicks") + 1);
-                                    continue;
-                                }
-                                var model = API.getEntityModel(veh);
-                                var spawnPos = API.getEntityData(veh, "SPAWN_POS");
-                                var spawnRot = API.getEntityData(veh, "SPAWN_ROT");
-
-                                API.deleteEntity(veh);
-
-                                var vehicle = API.createVehicle((VehicleHash)model, spawnPos, spawnRot, 0, 0);
-
-                                API.setEntityData(vehicle, "RESPAWNABLE", true);
-                                API.setEntityData(vehicle, "SPAWN_POS", spawnPos);
-                                API.setEntityData(vehicle, "SPAWN_ROT", spawnRot);
-                                API.setEntityData(vehicle, "HasBeenUsed", false);
-                                API.setEntityData(vehicle, "CleanupTicks", 0);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                API.consoleOutput("caught error: " + ex.Message);
-            }
+            API.shared.setEntityData(newVeh.handle, keys.KEY_VEHICLE_RESPAWNABLE, true);
+            API.shared.setEntityData(newVeh.handle, keys.KEY_VEHICLE_RESPAWN_POS, spawnPos);
+            API.shared.setEntityData(newVeh.handle, keys.KEY_VEHICLE_RESPAWN_ROT, spawnRot);
+            API.shared.setEntityData(newVeh.handle, keys.KEY_VEHICLE_MODEL, vehicleHash);
         }
 
         #endregion
@@ -723,21 +653,34 @@ namespace TheDarkZone
 
         public double GetRandomDoubleBetween(int min, int max)
         {
-            Random r = new Random();
-            return double.Parse((r.Next(min, max).ToString()));
+            return double.Parse((rnd.Next(min, max).ToString()));
         }
 
         public int GetRandomIntBetween(int min, int max)
         {
-            Random r = new Random();
-            return r.Next(min, max);
+            return rnd.Next(min, max);
         }
 
         public float GetRandomFloatBetween(int min, int max)
         {
-            Random r = new Random();
-            return float.Parse((r.Next(min, max)).ToString());
+            return float.Parse((rnd.Next(min, max)).ToString());
         }
+
+        private void SaveVehiclePosInXmlFormat(Vector3 vPos, Vector3 rot)
+        {
+            using (StreamWriter writer = new StreamWriter(@"C:\vehicles.txt", true))
+            {
+                writer.WriteLine("<spawn>");
+                writer.WriteLine("\t<xpos>" + vPos.X.ToString().Replace(',', '.') + "</xpos>");
+                writer.WriteLine("\t<ypos>" + vPos.Y.ToString().Replace(',', '.') + "</ypos>");
+                writer.WriteLine("\t<zpos>" + vPos.Z.ToString().Replace(',', '.') + "</zpos>");
+                writer.WriteLine("\t<xrot>" + rot.X.ToString().Replace(',', '.') + "</xrot>");
+                writer.WriteLine("\t<yrot>" + rot.Y.ToString().Replace(',', '.') + "</yrot>");
+                writer.WriteLine("\t<zrot>" + rot.Z.ToString().Replace(',', '.') + "</zrot>");
+                writer.WriteLine("</spawn>");
+            }
+        }
+
         #endregion
 
         #endregion
