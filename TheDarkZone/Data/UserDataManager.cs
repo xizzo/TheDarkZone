@@ -19,13 +19,15 @@ namespace TheDarkZone.Data
 
         private string connectionString = "";
         private string strSQL = "";
+        private TheDarkZone mainScript { get; set; }
 
         #endregion 
 
         #region "Initialize"
 
-        public UserDataManager()
+        public UserDataManager(TheDarkZone mainScript)
         {
+            this.mainScript = mainScript;
             connectionString = GetMysqlConnectionString();
         }
 
@@ -189,8 +191,10 @@ namespace TheDarkZone.Data
                 using (MySqlConnection con = new MySqlConnection(connectionString))
                 {
                     con.Open();
-                    strSQL = "SELECT T1.role, T2.money FROM USER_Accounts T1 ";
-                    strSQL += "INNER JOIN USER_Inventory T2 on T1.id = T2.userid WHERE id = @id";
+                    strSQL = "SELECT T1.role, T2.money, T3.propertyname FROM USER_Accounts T1 ";
+                    strSQL += "INNER JOIN USER_Inventory T2 on T1.id = T2.userid ";
+                    strSQL += "LEFT JOIN USER_Appartment T3 on T1.ID = T3.userid ";
+                    strSQL+= " WHERE T1.id = @id";
                     using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
                     {
                         cmd.Parameters.AddWithValue("@id", player.userID);
@@ -202,6 +206,13 @@ namespace TheDarkZone.Data
                                 {
                                     player.roleLevel = (int)rdr["role"];
                                     player.money = (int)rdr["money"];
+                                    if(rdr["propertyname"] != DBNull.Value) {
+                                        player.ownedAppartment = (string)rdr["propertyname"];
+                                    }
+                                    else
+                                    {
+                                        player.ownedAppartment = "";
+                                    }
                                     return true;
                                 }
                             }
@@ -226,7 +237,7 @@ namespace TheDarkZone.Data
                     strSQL = "UPDATE USER_Inventory SET money = @money WHERE userid = @userid";
                     using(MySqlCommand cmd = new MySqlCommand(strSQL, con))
                     {
-                        cmd.Parameters.AddWithValue("@money", player.money);
+                        cmd.Parameters.AddWithValue("@money", API.shared.getEntitySyncedData(player.client, mainScript.keys.KEY_USER_MONEY));
                         cmd.Parameters.AddWithValue("@userid", player.userID);
                         cmd.ExecuteNonQuery();
                     }
@@ -236,6 +247,75 @@ namespace TheDarkZone.Data
             {
                 API.shared.consoleOutput("Failed to save player data: " + ex.Message);
             }
+        }
+
+        public void SavePlayerMoney(Client sender)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    strSQL = "UPDATE USER_Inventory SET money = @money WHERE userid=@userid";
+                    using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                    {
+                        cmd.Parameters.AddWithValue("@money", API.shared.getEntitySyncedData(sender, mainScript.keys.KEY_USER_MONEY));
+                        cmd.Parameters.AddWithValue("@userid", API.shared.getEntityData(sender, mainScript.keys.KEY_USER_ID));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                API.shared.consoleOutput("Failed to delete player owned appartment: " + ex.Message);
+            }
+        }
+
+        public bool DeletePlayerAppartment(Client sender)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    strSQL = "DELETE FROM USER_Appartment WHERE userid = @userid";
+                    using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                    {
+                        cmd.Parameters.AddWithValue("@userid", API.shared.getEntityData(sender, mainScript.keys.KEY_USER_ID));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                API.shared.consoleOutput("Failed to delete player owned appartment: " + ex.Message);
+            }
+            return false;
+        }
+
+        public bool SavePlayerAppartment(Client sender)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    strSQL = "INSERT INTO USER_Appartment(userid, propertyname) VALUES (@userid, @propertyname)";
+                    using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                    {
+                        cmd.Parameters.AddWithValue("@userid", API.shared.getEntityData(sender, mainScript.keys.KEY_USER_ID));
+                        cmd.Parameters.AddWithValue("@propertyname", API.shared.getEntityData(sender, mainScript.keys.KEY_USER_APARTMENT));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                API.shared.consoleOutput("Failed to create player owned appartment: " + ex.Message);
+            }
+            return false;
         }
 
         #endregion 

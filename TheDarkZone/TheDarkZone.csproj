@@ -48,10 +48,13 @@
   <ItemGroup>
     <Compile Include="Data\KeyManager.cs" />
     <Compile Include="Data\UserDataManager.cs" />
+    <Compile Include="Managers\PropertyManager.cs" />
+    <Compile Include="Managers\RandomEventManager.cs" />
     <Compile Include="Missions\CollectMissionInfo.cs" />
     <Compile Include="Missions\CollectMission.cs" />
     <Compile Include="Structure\item.cs" />
     <Compile Include="Structure\Player.cs" />
+    <Compile Include="Structure\Property.cs" />
     <Compile Include="Structure\Veh.cs" />
     <Compile Include="TheDarkZone.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

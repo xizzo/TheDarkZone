@@ -56,6 +56,7 @@ namespace TheDarkZone.Missions
         private void CompleteMission(Client client)
         {
             mainScript.AddPlayerMoney(client, missionInfos[API.shared.getEntityData(client, mainScript.keys.KEY_MISSION_CURR_COLLECTION_ID)].moneyReward);
+            API.shared.sendNotificationToAll(client.name + " ~g~completed ~w~a ~g~mission");
             API.shared.setEntityData(client, mainScript.keys.KEY_USER_HAS_ACTIVE_MISSION, false);
         }
 
@@ -63,8 +64,7 @@ namespace TheDarkZone.Missions
         {
             ResetAndDeleteCollShapes(sender);
 
-            API.shared.triggerClientEvent(sender, "CreateMissionMarker", 1, pos);
-
+            API.shared.triggerClientEvent(sender, "CreateMissionMarker", 1, pos, true);
             ColShape colShape = API.shared.createCylinderColShape(pos, 2.0f, 3.0f);
             colShape.setData(mainScript.keys.KEY_MARKER_CURR_PLAYERID, mainScript.PlayerUserID(sender));
             colShape.setData(mainScript.keys.KEY_MARKER_CURR_MISSION, 1);

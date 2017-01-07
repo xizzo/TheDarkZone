@@ -24,14 +24,15 @@ namespace TheDarkZone
         public List<Veh> Vehicles = new List<Veh>();
         public List<Item> Items = new List<Item>();
         public double currUpdateTick = 0;
-        public KeyManager keys = new KeyManager();
 
-        private UserDataManager userDM;
         private int ClearVehicleAfterTicks = 10;
         private Vector3 lobbySpawnPoint = new Vector3(-75.33064f, -819.012f, 326.175f);
         private Vector3 lobbyRotation = new Vector3(0, 0, -89.63917);
 
+        public KeyManager keys = new KeyManager();
         private VehicleManager vehManager;
+        private PropertyManager propManager;
+        private UserDataManager userDM;
 
         static private Random rnd = new Random();
 
@@ -81,7 +82,7 @@ namespace TheDarkZone
             API.sendChatMessageToPlayer(sender, "Please ~g~/register [username] [password]");
             API.sendChatMessageToPlayer(sender, "or ~g~/login [username] [password]");
             API.sendChatMessageToPlayer(sender, "if you already have an account.");
-            API.sendNotificationToPlayer(sender, "Welcome! Please register or login to continue!", true);
+            API.sendNotificationToPlayer(sender, "Welcome! Please ~g~register ~w~or ~g~login ~w~to continue!", true);
         }
 
         public void onUpdate()
@@ -134,8 +135,10 @@ namespace TheDarkZone
             API.consoleOutput("The Dark Zone script loaded");
             API.setWeather(11);
             API.setTime(5, 0);
-            userDM = new UserDataManager();
+            userDM = new UserDataManager(this);
+            propManager = new PropertyManager(this);
             vehManager = new VehicleManager(this);
+            API.requestIpl("ex_sm_13_office_02b");
         }
 
         public void onVehicleDeath(NetHandle vehicle)
@@ -238,6 +241,56 @@ namespace TheDarkZone
                 case "Suicide":
                     API.setPlayerHealth(sender, -1);
                     break;
+                case "BuyApartment":
+                    string appartment = args[0].ToString();
+                    string appDisplayName = args[1].ToString();
+                    if (API.getEntityData(sender, keys.KEY_USER_APARTMENT) == "")
+                    {
+                        int propPrice = propManager.GetPropertyPrice(appartment);
+                        if (GetPlayerMoney(sender) < propPrice)
+                        {
+                            API.sendNotificationToPlayer(sender, "~r~You do not have enough money to buy this property!");
+                            break;
+                        }
+                        API.setEntityData(sender, keys.KEY_USER_APARTMENT, appartment);
+                        if (userDM.SavePlayerAppartment(sender))
+                        {
+                            RemovePlayerMoney(sender, propPrice);
+                            API.triggerClientEvent(sender, "CreateApartmentBlip", propManager.GetPropertyPosition(appartment));
+                            API.sendNotificationToAll(sender.name + " ~g~bought ~w~a ~y~" + appDisplayName);
+                        }
+                        else
+                        {
+                            API.sendNotificationToPlayer(sender, "~r~Something went wrong, please try again later!");
+                            API.setEntityData(sender, keys.KEY_USER_APARTMENT, "");
+                        }
+                    }
+                    else
+                    {
+                        API.sendNotificationToPlayer(sender,"~r~You already own an appartment!");
+                    }
+                    break;
+                case "SellApartment":
+                    if (API.getEntityData(sender, keys.KEY_USER_APARTMENT) != "")
+                    {
+                        int repay = (int)propManager.GetPropertyPrice(API.getEntityData(sender, keys.KEY_USER_APARTMENT)) / 2;
+                        if(userDM.DeletePlayerAppartment(sender))
+                        {
+                            AddPlayerMoney(sender, repay);
+                            API.sendNotificationToPlayer(sender, "You have ~g~sold ~w~your appartment!");
+                            API.setEntityData(sender, keys.KEY_USER_APARTMENT, "");
+                            API.triggerClientEvent(sender, "DestroyApartmentBlip");
+                        }
+                        else
+                        {
+                            API.sendNotificationToPlayer(sender, "~r~Something went wrong, please try again later!");
+                        }
+                    }
+                    else
+                    {
+                        API.sendNotificationToPlayer(sender, "~r~You don't own an appartment!");
+                    }
+                    break;
             }
         }
 
@@ -261,6 +314,16 @@ namespace TheDarkZone
 
         #region "Player commands"
 
+        [Command("mod")]
+        public void ModVehicle(Client sender, int modType, int mod)
+        {
+            if (API.isPlayerInAnyVehicle(sender))
+            {
+                NetHandle vehToMod = API.getPlayerVehicle(sender);
+                API.setVehicleMod(vehToMod, modType, mod);
+            }
+        }
+
         [Command("skin")]
         public void ChangeSkinCommand(Client sender, PedHash model)
         {
@@ -271,6 +334,37 @@ namespace TheDarkZone
         #endregion
 
         #region "Admin commands"
+
+        [Command("givemoney")]
+        public void GiveMoney(Client sender, Client target, int amount)
+        {
+            if (PlayerAdminLevel(sender) == 3)
+            {
+                AddPlayerMoney(target, amount);
+            }
+        }
+
+        [Command("app")]
+        public void app(Client sender)
+        {
+            if (PlayerAdminLevel(sender) == 3)
+            {
+                API.setEntityPosition(sender, new Vector3(-1579.756, -565.0661, 108.523));
+            }
+        }
+
+        [Command("move")]
+        public void MovePlayer(Client sender, float x, float y, float z)
+        {
+            if (PlayerAdminLevel(sender) == 3)
+            {
+                Vector3 pos = API.getEntityPosition(sender);
+                pos.X += x;
+                pos.Y += y;
+                pos.Z += z;
+                API.setEntityPosition(sender, pos);
+            }
+        }
 
         [Command("testpos")]
         public void testpos(Client sender)
@@ -366,6 +460,7 @@ namespace TheDarkZone
             {
                 Vector3 pos = sender.position;
                 Vector3 targetPos = new Vector3(target.position.X + 4, target.position.Y + 4, target.position.Z);
+                API.setEntityDimension(sender, 0);
                 API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", pos, new Vector3(), 1f);
                 API.createParticleEffectOnPosition("scr_rcbarry1", "scr_alien_teleport", targetPos, new Vector3(), 1f);
                 API.setEntityPosition(sender.handle, targetPos);
@@ -403,6 +498,13 @@ namespace TheDarkZone
         #endregion
 
         #region "Account commands"
+
+        [Command("logout")]
+        public void logout(Client sender)
+        {
+            LogoutPlayer(sender, true);
+            API.sendNotificationToPlayer(sender, "You have been ~r~logged out!");
+        }
 
         [Command(SensitiveInfo = true)]
         public void Login(Client sender, string username, string password)
@@ -470,12 +572,27 @@ namespace TheDarkZone
 
         #region "Player Get Set Data functions"
 
+        public int GetPlayerMoney(Client client)
+        {
+            return (int)API.getEntitySyncedData(client, keys.KEY_USER_MONEY);
+        }
+
+        public void RemovePlayerMoney(Client client, int money)
+        {
+            int currMoney = (int)API.getEntitySyncedData(client, keys.KEY_USER_MONEY);
+            currMoney -= money;
+            API.setEntitySyncedData(client, keys.KEY_USER_MONEY, currMoney);
+            API.sendNotificationToPlayer(client, "~g~$" + money + " ~w~was ~r~removed ~w~from your account");
+            userDM.SavePlayerMoney(client);
+        }
+
         public void AddPlayerMoney(Client client, int money)
         {
             int currMoney = (int)API.getEntitySyncedData(client, keys.KEY_USER_MONEY);
             currMoney += money;
             API.setEntitySyncedData(client, keys.KEY_USER_MONEY, currMoney);
             API.sendNotificationToPlayer(client, "You have received ~g~$" + money);
+            userDM.SavePlayerMoney(client);
         }
 
         public int PlayerUserID(NetHandle nethandle)
@@ -497,6 +614,32 @@ namespace TheDarkZone
 
         #region "Player Functions"
 
+        private void LogoutPlayer(Client sender, bool stayInServer = false)
+        {
+            foreach (Player p in Players)
+            {
+                if (p.client == sender)
+                {
+
+                    if (p.hasVehicle)
+                    {
+                        API.deleteEntity(p.vehicle);
+                    }
+                    if ((bool)API.getEntityData(sender, keys.KEY_USER_HAS_ACTIVE_MISSION))
+                    {
+                        ResetAndDeleteCollShapes(sender);
+                    }
+                    p.SavePlayerData();
+                    break;
+                }
+            }
+            if (stayInServer)
+            {
+                SetPlayerCleanEntityData(sender);
+                PutPlayerInLobby(sender);
+            }
+        }
+
         private void PlayerLoginSuccessfull(Client sender, int id)
         {
             foreach (Player p in Players)
@@ -508,13 +651,14 @@ namespace TheDarkZone
                     break;
                 }
             }
-            
-            API.sendChatMessageToPlayer(sender, "~g~You are now logged in.");
-            API.sendNotificationToPlayer(sender, "You have successfully logged in!", false);
+            API.setEntityDimension(sender, 0);
+            API.sendNotificationToPlayer(sender, "You have successfully ~g~logged in!", false);
             API.setEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED, true);
             API.setEntityData(sender.handle, keys.KEY_USER_ID, id);
-            API.setEntityDimension(sender, 0);
             API.getPlayerFromHandle(sender.handle).invincible = false;
+            if(API.shared.getEntityData(sender.handle, keys.KEY_USER_APARTMENT) != ""){
+                API.triggerClientEvent(sender, "CreateApartmentBlip", propManager.GetPropertyPosition(API.shared.getEntityData(sender.handle, keys.KEY_USER_APARTMENT)));
+            }
             PlayerFreshSpawn(sender);
             API.sendChatMessageToPlayer(sender, "~r~This server is currently under FULL DEVELOPMENT!");
             API.sendChatMessageToPlayer(sender, "~r~For now you are able to spawn vehicles with ~y~/v [vehiclename]");
@@ -522,7 +666,7 @@ namespace TheDarkZone
             API.sendChatMessageToPlayer(sender, "~r~make sure to check us out often!");
             API.sendChatMessageToPlayer(sender, "~g~Our goal for this server: character progression, missions");
             API.sendChatMessageToPlayer(sender, "~g~survival elements, pvp, leaderbords and alot more!");
-            API.sendChatMessageToPlayer(sender, "~y~ F1 = player menu, F2 = mission menu");
+            API.sendChatMessageToPlayer(sender, "~y~ F1 = player menu | F2 = mission menu | F3 = property menu");
         }
 
         private void SetPlayerCleanEntityData(Client sender)
@@ -531,12 +675,15 @@ namespace TheDarkZone
             API.setEntityData(sender.handle, keys.KEY_USER_ID, 0);
             API.setEntityData(sender.handle, keys.KEY_USER_ADMIN_LEVEL, 0);
             API.setEntityData(sender.handle, keys.KEY_USER_HAS_ACTIVE_MISSION, false);
+            API.setEntityData(sender.handle, keys.KEY_USER_APARTMENT, "");
 
             API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_COLL, null);
             API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_STEP, 0);
             API.setEntityData(sender.handle, keys.KEY_MISSION_CURR_COLLECTION_ID, 0);
 
             API.setEntitySyncedData(sender, keys.KEY_USER_MONEY, 0);
+            API.triggerClientEvent(sender, "DestroyLastMissionMarker");
+            API.triggerClientEvent(sender, "DestroyApartmentBlip");
         }
 
         private void PutPlayerInLobby(Client sender)

@@ -13,6 +13,7 @@ namespace TheDarkZone.Data
         public string KEY_USER_ADMIN_LEVEL = "ADMIN_LEVEL";
         public string KEY_USER_HAS_ACTIVE_MISSION = "HAS_ACTIVE_MISSION";
         public string KEY_USER_MONEY = "USER_MONEY";
+        public string KEY_USER_APARTMENT = "KEY_USER_APARTMENT";
 
         public string KEY_MISSION_USER_ID = "MISSION_USER_ID";
         public string KEY_MISSION_CURR_COLL = "MISSION_CURR_COLL";
@@ -26,6 +27,12 @@ namespace TheDarkZone.Data
         public string KEY_VEHICLE_RESPAWN_POS = "VEHICLE_RESPAWN_POS";
         public string KEY_VEHICLE_RESPAWN_ROT = "VEHICLE_RESPAWN_ROT";
         public string KEY_VEHICLE_MODEL = "VEHICLE_MODEL";
+
+        public string PROPERTY_NAME = "PROPERTY_NAME";
+        public string PROPERTY_IN_OUT = "PROPERTY_IN_OUT";
+        public string PROPERTY_ENTRANCE_SPAWN = "PROPERTY_ENTRANCE_SPAWN";
+        public string PROPERTY_ENTRANCE_SPAWN_ROT = "PROPERTY_ENTRANCE_SPAWN_ROT";
+        public string PROPERTY_EXIT_SPAWN = "PROPERTY_EXIT_SPAWN";
 
     }
 }

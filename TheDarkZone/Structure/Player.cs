@@ -20,6 +20,7 @@ namespace TheDarkZone.Structure
         public int roleLevel { get; set; }
         public int money { get; set; }
         public int userID { get; set; }
+        public string ownedAppartment { get; set; }
 
         private KeyManager keys;
         private UserDataManager udm;
@@ -35,6 +36,7 @@ namespace TheDarkZone.Structure
             this.udm = udm;
             this.keys = keys;
             this.client = client;
+            this.ownedAppartment = "";
         }
 
         public Player()
@@ -54,6 +56,7 @@ namespace TheDarkZone.Structure
                 API.shared.consoleOutput("Loaded player data for user: " + client.name);
 
                 API.shared.setEntityData(client.handle, keys.KEY_USER_ADMIN_LEVEL, roleLevel);
+                API.shared.setEntityData(client.handle, keys.KEY_USER_APARTMENT, ownedAppartment);
 
                 API.shared.setEntitySyncedData(client.handle, keys.KEY_USER_MONEY, money);
             }
