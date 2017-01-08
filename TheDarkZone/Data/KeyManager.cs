@@ -14,6 +14,7 @@ namespace TheDarkZone.Data
         public string KEY_USER_HAS_ACTIVE_MISSION = "HAS_ACTIVE_MISSION";
         public string KEY_USER_MONEY = "USER_MONEY";
         public string KEY_USER_APARTMENT = "KEY_USER_APARTMENT";
+        public string KEY_USER_WEAPONS = "KEY_USER_WEAPONS";
 
         public string KEY_MISSION_USER_ID = "MISSION_USER_ID";
         public string KEY_MISSION_CURR_COLL = "MISSION_CURR_COLL";
@@ -33,6 +34,9 @@ namespace TheDarkZone.Data
         public string PROPERTY_ENTRANCE_SPAWN = "PROPERTY_ENTRANCE_SPAWN";
         public string PROPERTY_ENTRANCE_SPAWN_ROT = "PROPERTY_ENTRANCE_SPAWN_ROT";
         public string PROPERTY_EXIT_SPAWN = "PROPERTY_EXIT_SPAWN";
+
+        public string AMMOSHOP_TELEPORT_TO = "AMMOSHOP_TELEPORT_TO";
+        public string AMMOSHOP_TELEPORT_IN_OUT = "AMMOSHOP_TELEPORT_IN_OUT";
 
     }
 }

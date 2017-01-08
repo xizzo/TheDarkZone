@@ -33,6 +33,8 @@ namespace TheDarkZone
         private VehicleManager vehManager;
         private PropertyManager propManager;
         private UserDataManager userDM;
+        private AmmoShopManager ammoSM;
+        private WeaponData weaponData;
 
         static private Random rnd = new Random();
 
@@ -100,6 +102,7 @@ namespace TheDarkZone
             if (API.getEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED))
             {
                 PlayerFreshSpawn(sender);
+                GivePlayerOwnedWeapons(sender);
             }
             else
             {
@@ -138,7 +141,8 @@ namespace TheDarkZone
             userDM = new UserDataManager(this);
             propManager = new PropertyManager(this);
             vehManager = new VehicleManager(this);
-            API.requestIpl("ex_sm_13_office_02b");
+            ammoSM = new AmmoShopManager(this);
+            weaponData = new WeaponData();
         }
 
         public void onVehicleDeath(NetHandle vehicle)
@@ -289,6 +293,37 @@ namespace TheDarkZone
                     else
                     {
                         API.sendNotificationToPlayer(sender, "~r~You don't own an appartment!");
+                    }
+                    break;
+                case "BuyWeapon":
+                    string weapon = args[0].ToString();
+                    int wepID = weaponData.GetWeaponIdByName(weapon);
+                    if (GetPlayerMoney(sender) < weaponData.weapons[wepID].weaponPrice)
+                    {
+                        API.sendNotificationToPlayer(sender, "~r~You don't have enough money to buy this weapon!");
+                        break;
+                    }
+                    else
+                    {
+                        string ownedWeps = API.getEntityData(sender, keys.KEY_USER_WEAPONS);
+                        if (ownedWeps.Contains(weaponData.weapons[wepID].weaponHash.ToString()))
+                        {
+                            API.sendNotificationToPlayer(sender, "~r~You already own this weapon!");
+                            break;
+                        }
+                        RemovePlayerMoney(sender, weaponData.weapons[wepID].weaponPrice);
+                        API.sendNotificationToPlayer(sender, "You ~g~bought ~w~ a ~y~weapon~w~!");
+                        API.givePlayerWeapon(sender, weaponData.weapons[wepID].weaponHash, 99999, false, false);
+                        if (ownedWeps != "")
+                        {
+                            ownedWeps += ";" + weaponData.weapons[wepID].weaponHash.ToString();
+                        }
+                        else
+                        {
+                            ownedWeps = weaponData.weapons[wepID].weaponHash.ToString();
+                        }
+                        API.setEntityData(sender, keys.KEY_USER_WEAPONS, ownedWeps);
+                        userDM.SavePlayerWeapons(sender);
                     }
                     break;
             }
@@ -502,8 +537,11 @@ namespace TheDarkZone
         [Command("logout")]
         public void logout(Client sender)
         {
-            LogoutPlayer(sender, true);
-            API.sendNotificationToPlayer(sender, "You have been ~r~logged out!");
+            if(PlayerLoggedIn(sender))
+            {
+                LogoutPlayer(sender, true);
+                API.sendNotificationToPlayer(sender, "You have been ~r~logged out!");
+            }
         }
 
         [Command(SensitiveInfo = true)]
@@ -659,7 +697,9 @@ namespace TheDarkZone
             if(API.shared.getEntityData(sender.handle, keys.KEY_USER_APARTMENT) != ""){
                 API.triggerClientEvent(sender, "CreateApartmentBlip", propManager.GetPropertyPosition(API.shared.getEntityData(sender.handle, keys.KEY_USER_APARTMENT)));
             }
+               
             PlayerFreshSpawn(sender);
+            GivePlayerOwnedWeapons(sender);
             API.sendChatMessageToPlayer(sender, "~r~This server is currently under FULL DEVELOPMENT!");
             API.sendChatMessageToPlayer(sender, "~r~For now you are able to spawn vehicles with ~y~/v [vehiclename]");
             API.sendChatMessageToPlayer(sender, "~r~We are working on this server on a daily basis so");
@@ -667,6 +707,19 @@ namespace TheDarkZone
             API.sendChatMessageToPlayer(sender, "~g~Our goal for this server: character progression, missions");
             API.sendChatMessageToPlayer(sender, "~g~survival elements, pvp, leaderbords and alot more!");
             API.sendChatMessageToPlayer(sender, "~y~ F1 = player menu | F2 = mission menu | F3 = property menu");
+        }
+
+        private void GivePlayerOwnedWeapons(Client sender)
+        {
+            string weapons = (string)API.getEntityData(sender, keys.KEY_USER_WEAPONS);
+            if (weapons != "")
+            {
+                string[] weaponsList = weapons.Split(';');
+                foreach (string wep in weaponsList)
+                {
+                    API.givePlayerWeapon(sender, API.weaponNameToModel(wep), 99999, false, false);
+                }
+            }
         }
 
         private void SetPlayerCleanEntityData(Client sender)
@@ -701,12 +754,12 @@ namespace TheDarkZone
             API.setEntityPosition(sender.handle, new Vector3(-276.4822, -891.2561, 1066.544));
             API.setEntityRotation(sender.handle, new Vector3(-5.371634, 7.375679, 19.1878));
             API.givePlayerWeapon(sender, (WeaponHash)(-72657034), 1, true, true);
-            API.givePlayerWeapon(sender, (WeaponHash)(-619010992), 9999, false, false);
-            API.givePlayerWeapon(sender, (WeaponHash)(-1074790547), 9999, false, false);
-            API.givePlayerWeapon(sender, (WeaponHash)(2132975508), 9999, false, false);
-            API.givePlayerWeapon(sender, (WeaponHash)(100416529), 9999, false, false);
-            API.givePlayerWeapon(sender, (WeaponHash)(-1312131151), 9999, false, false);
-            API.givePlayerWeapon(sender, (WeaponHash)(-619010992), 9999, false, false);
+            //API.givePlayerWeapon(sender, (WeaponHash)(-619010992), 9999, false, false);
+            //API.givePlayerWeapon(sender, (WeaponHash)(-1074790547), 9999, false, false);
+            //API.givePlayerWeapon(sender, (WeaponHash)(2132975508), 9999, false, false);
+            //API.givePlayerWeapon(sender, (WeaponHash)(100416529), 9999, false, false);
+            //API.givePlayerWeapon(sender, (WeaponHash)(-1312131151), 9999, false, false);
+            //API.givePlayerWeapon(sender, (WeaponHash)(-619010992), 9999, false, false);
 
         }
 

@@ -191,7 +191,7 @@ namespace TheDarkZone.Data
                 using (MySqlConnection con = new MySqlConnection(connectionString))
                 {
                     con.Open();
-                    strSQL = "SELECT T1.role, T2.money, T3.propertyname FROM USER_Accounts T1 ";
+                    strSQL = "SELECT T1.role, T2.money, T2.weapons, T3.propertyname FROM USER_Accounts T1 ";
                     strSQL += "INNER JOIN USER_Inventory T2 on T1.id = T2.userid ";
                     strSQL += "LEFT JOIN USER_Appartment T3 on T1.ID = T3.userid ";
                     strSQL+= " WHERE T1.id = @id";
@@ -206,6 +206,7 @@ namespace TheDarkZone.Data
                                 {
                                     player.roleLevel = (int)rdr["role"];
                                     player.money = (int)rdr["money"];
+                                    player.ownedWeapons = (string)rdr["weapons"];
                                     if(rdr["propertyname"] != DBNull.Value) {
                                         player.ownedAppartment = (string)rdr["propertyname"];
                                     }
@@ -225,6 +226,28 @@ namespace TheDarkZone.Data
                 API.shared.consoleOutput("Failed to retrieve player data: " + ex.Message);
             }
             return false;
+        }
+
+        public void SavePlayerWeapons(Client sender)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    strSQL = "UPDATE USER_Inventory SET weapons = @weapons WHERE userid=@userid";
+                    using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                    {
+                        cmd.Parameters.AddWithValue("@weapons", API.shared.getEntityData(sender, mainScript.keys.KEY_USER_WEAPONS));
+                        cmd.Parameters.AddWithValue("@userid", API.shared.getEntityData(sender, mainScript.keys.KEY_USER_ID));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                API.shared.consoleOutput("Failed to save player owned weapons: " + ex.Message);
+            }
         }
 
         public void SavePlayerData(Player player)

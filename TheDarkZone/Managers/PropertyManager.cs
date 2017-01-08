@@ -13,8 +13,15 @@ namespace TheDarkZone.Managers
 {
     public class PropertyManager
     {
+
+        #region "Variables"
+
         private TheDarkZone mainScript { get; set; }
         public List<Property> properties = new List<Property>();
+
+        #endregion
+
+        #region "Initialize"
 
         public PropertyManager(TheDarkZone mainScript)
         {
@@ -24,26 +31,30 @@ namespace TheDarkZone.Managers
             API.shared.consoleOutput("properties loaded: " + properties.Count);
         }
 
+        #endregion
+
+        #region "Private functions"
+
         private void CreateProperties()
         {
-            foreach(Property prop in properties)
+            foreach (Property prop in properties)
             {
                 NetHandle propBlip = API.shared.createBlip(prop.propEntrance, 100f, 0);
                 API.shared.setBlipSprite(propBlip, 350);
                 API.shared.setBlipColor(propBlip, 4);
                 API.shared.requestIpl(prop.IPL);
-              
-                API.shared.createMarker(1, new Vector3(prop.propEntrance.X, prop.propEntrance.Y, prop.propEntrance.Z -1), new Vector3(), new Vector3(), new Vector3(1.5, 1.5, 1), 241, 247, 57, 180);
-                API.shared.createMarker(1, new Vector3(prop.propExit.X, prop.propExit.Y, prop.propExit.Z - 1), new Vector3(), new Vector3(), new Vector3(1.5, 1.5, 1), 241, 247, 57, 180);
 
-                CylinderColShape colEntrance =  API.shared.createCylinderColShape(prop.propEntrance, 1.5f, 1.5f);
+                API.shared.createMarker(1, new Vector3(prop.propEntrance.X, prop.propEntrance.Y, prop.propEntrance.Z - 1), new Vector3(), new Vector3(), new Vector3(0.8f, 0.8f, 0.5f), 241, 247, 57, 180);
+                API.shared.createMarker(1, new Vector3(prop.propExit.X, prop.propExit.Y, prop.propExit.Z - 1), new Vector3(), new Vector3(), new Vector3(0.8f, 0.8f, 0.5f), 241, 247, 57, 180);
+
+                CylinderColShape colEntrance = API.shared.createCylinderColShape(prop.propEntrance, 0.8f, 0.5f);
                 colEntrance.setData(mainScript.keys.PROPERTY_NAME, prop.IPL);
                 colEntrance.setData(mainScript.keys.PROPERTY_ENTRANCE_SPAWN, prop.propEntranceSpawn);
                 colEntrance.setData(mainScript.keys.PROPERTY_ENTRANCE_SPAWN_ROT, prop.propEntranceSpawnRot);
                 colEntrance.setData(mainScript.keys.PROPERTY_IN_OUT, true);
                 colEntrance.onEntityEnterColShape += onPlayerEnterPropColShape;
 
-                CylinderColShape colExit = API.shared.createCylinderColShape(prop.propExit, 1.5f, 1.5f);
+                CylinderColShape colExit = API.shared.createCylinderColShape(prop.propExit, 0.8f, 0.5f);
                 colExit.setData(mainScript.keys.PROPERTY_NAME, prop.IPL);
                 colExit.setData(mainScript.keys.PROPERTY_EXIT_SPAWN, prop.propExitSpawn);
                 colExit.setData(mainScript.keys.PROPERTY_IN_OUT, false);
@@ -136,7 +147,11 @@ namespace TheDarkZone.Managers
             }
 
         }
-            
+
+        #endregion
+
+        #region "Public functions"
+
         public Vector3 GetPropertyPosition(string IPL)
         {
             Vector3 pos = new Vector3();
@@ -164,6 +179,8 @@ namespace TheDarkZone.Managers
             }
             return price;
         }
+
+        #endregion
         
     }
 }

@@ -21,6 +21,7 @@ namespace TheDarkZone.Structure
         public int money { get; set; }
         public int userID { get; set; }
         public string ownedAppartment { get; set; }
+        public string ownedWeapons { get; set; }
 
         private KeyManager keys;
         private UserDataManager udm;
@@ -57,6 +58,7 @@ namespace TheDarkZone.Structure
 
                 API.shared.setEntityData(client.handle, keys.KEY_USER_ADMIN_LEVEL, roleLevel);
                 API.shared.setEntityData(client.handle, keys.KEY_USER_APARTMENT, ownedAppartment);
+                API.shared.setEntityData(client.handle, keys.KEY_USER_WEAPONS, ownedWeapons);
 
                 API.shared.setEntitySyncedData(client.handle, keys.KEY_USER_MONEY, money);
             }
