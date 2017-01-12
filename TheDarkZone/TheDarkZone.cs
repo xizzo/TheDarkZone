@@ -35,9 +35,10 @@ namespace TheDarkZone
         private UserDataManager userDM;
         private AmmoShopManager ammoSM;
         private WeaponData weaponData;
+        private ClothingManager clothingManager;
 
         static private Random rnd = new Random();
-
+        
         #endregion
 
         #region "Missions"
@@ -79,7 +80,7 @@ namespace TheDarkZone
             PutPlayerInLobby(sender);
             Players.Add(new Player(sender, userDM, keys));
             SetPlayerCleanEntityData(sender);
-            API.setPlayerSkin(sender, (PedHash)(788443093));
+            clothingManager.ResetPlayerClothing(sender);
             API.sendChatMessageToAll(GetChatTimeStamp() + " " + sender.name + " joined the server!");
             API.sendChatMessageToPlayer(sender, "Please ~g~/register [username] [password]");
             API.sendChatMessageToPlayer(sender, "or ~g~/login [username] [password]");
@@ -142,6 +143,7 @@ namespace TheDarkZone
             propManager = new PropertyManager(this);
             vehManager = new VehicleManager(this);
             ammoSM = new AmmoShopManager(this);
+            clothingManager = new ClothingManager(this);
             weaponData = new WeaponData();
         }
 
@@ -214,7 +216,7 @@ namespace TheDarkZone
 
         public void onClientEventTrigger(Client sender, string name, object[] args)
         {
-            if (!PlayerLoggedIn(sender))
+            if (!PlayerLoggedIn(sender) && (name != "ExitCharCreator" && name != "RequestNewHat" && name != "RequestNextPieceOfClothing" && name != "RequestHairColorChange"))
             {
                 API.sendNotificationToPlayer(sender, "~r~You need to be logged in first!");
                 return;
@@ -326,6 +328,24 @@ namespace TheDarkZone
                         userDM.SavePlayerWeapons(sender);
                     }
                     break;
+                case "RequestNextPieceOfClothing":
+                    int slot = (int)args[0];
+                    clothingManager.SetPlayerNextPieceOfClothing(sender, slot);
+                    break;
+                case "RequestGenderChange":
+                    clothingManager.ChangePlayerGender(sender);
+                    break;
+                case "RequestHairColorChange":
+                    clothingManager.ChangePlayerHairColor(sender);
+                    break;
+                case "RequestNewHat":
+                    clothingManager.ChangePlayerHat(sender);
+                    break;
+                case "ExitCharCreator":
+                    userDM.SavePlayerClothing(sender);
+                    API.setEntitySyncedData(sender, keys.KEY_USER_IN_CHAR_EDITOR, false);
+                    PlayerLoginSuccessfull(sender, API.getEntityData(sender, keys.KEY_USER_ID));
+                    break;
             }
         }
 
@@ -359,7 +379,13 @@ namespace TheDarkZone
             }
         }
 
-        [Command("skin")]
+      [Command("cloth")]
+      public void Cloth(Client sender, int slot, int drawable, int texture)
+      {
+         API.setPlayerClothes(sender, slot, drawable, texture);
+      }
+
+      [Command("skin")]
         public void ChangeSkinCommand(Client sender, PedHash model)
         {
             API.setPlayerSkin(sender, model);
@@ -576,9 +602,10 @@ namespace TheDarkZone
                 int uID = userDM.CreateUserAccount(username, password);
                 if (uID != 0)
                 {
+                    API.setEntityData(sender, keys.KEY_USER_ID, uID);
                     API.sendNotificationToPlayer(sender, "Registration complete!", true);
                     API.sendChatMessageToPlayer(sender, "Thank you for registering!");
-                    PlayerLoginSuccessfull(sender, uID);
+                    SetupPlayerInCharacterEditor(sender);
                 }
                 else
                 {
@@ -652,6 +679,21 @@ namespace TheDarkZone
 
         #region "Player Functions"
 
+        private void PutPlayerClothesOn(Client sender)
+        {
+            API.setPlayerClothes(sender, 1, API.getEntityData(sender, keys.USER_CLOTHING_MASK), 0);
+            API.setPlayerClothes(sender, 2, API.getEntityData(sender, keys.USER_CLOTHING_HAIR), API.getEntityData(sender, keys.USER_CLOTHING_HAIR_COLOR));
+            API.setPlayerClothes(sender, 11, API.getEntityData(sender, keys.USER_CLOTHING_TOP), 0);
+            API.setPlayerClothes(sender, 4, API.getEntityData(sender, keys.USER_CLOTHING_LEGS), 0);
+            API.setPlayerClothes(sender, 0, API.getEntityData(sender, keys.USER_CLOTHING_FACE), 0);
+            API.setPlayerClothes(sender, 5, API.getEntityData(sender, keys.USER_CLOTHING_BAGS), 0);
+            API.setPlayerClothes(sender, 6, API.getEntityData(sender, keys.USER_CLOTHING_FEET), 0);
+            API.setPlayerClothes(sender, 7, API.getEntityData(sender, keys.USER_CLOTHING_ACCESSORIES), 0);
+            API.setPlayerAccessory(sender, 0, API.getEntityData(sender,keys.USER_CLOTHING_HAT), 0);
+            API.setPlayerClothes(sender, 3, API.getEntityData(sender, keys.USER_CLOTHING_TORSO), 0);
+            API.setPlayerClothes(sender, 8, API.getEntityData(sender, keys.USER_CLOTHING_UNDERSHIRT), 0);
+        }
+
         private void LogoutPlayer(Client sender, bool stayInServer = false)
         {
             foreach (Player p in Players)
@@ -673,9 +715,17 @@ namespace TheDarkZone
             }
             if (stayInServer)
             {
+                clothingManager.ResetPlayerClothing(sender);
                 SetPlayerCleanEntityData(sender);
                 PutPlayerInLobby(sender);
             }
+        }
+
+        private void SetupPlayerInCharacterEditor(Client sender)
+        {
+            API.sendChatMessageToPlayer(sender, "~y~Please create your character and select exit and continue when you are done!");
+            PutPlayerInLobby(sender);
+            API.setEntitySyncedData(sender, keys.KEY_USER_IN_CHAR_EDITOR, true);
         }
 
         private void PlayerLoginSuccessfull(Client sender, int id)
@@ -689,6 +739,7 @@ namespace TheDarkZone
                     break;
                 }
             }
+            API.setEntitySyncedData(sender, keys.KEY_USER_IN_CHAR_EDITOR, false);
             API.setEntityDimension(sender, 0);
             API.sendNotificationToPlayer(sender, "You have successfully ~g~logged in!", false);
             API.setEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED, true);
@@ -697,7 +748,7 @@ namespace TheDarkZone
             if(API.shared.getEntityData(sender.handle, keys.KEY_USER_APARTMENT) != ""){
                 API.triggerClientEvent(sender, "CreateApartmentBlip", propManager.GetPropertyPosition(API.shared.getEntityData(sender.handle, keys.KEY_USER_APARTMENT)));
             }
-               
+            PutPlayerClothesOn(sender);    
             PlayerFreshSpawn(sender);
             GivePlayerOwnedWeapons(sender);
             API.sendChatMessageToPlayer(sender, "~r~This server is currently under FULL DEVELOPMENT!");
@@ -711,19 +762,23 @@ namespace TheDarkZone
 
         private void GivePlayerOwnedWeapons(Client sender)
         {
-            string weapons = (string)API.getEntityData(sender, keys.KEY_USER_WEAPONS);
-            if (weapons != "")
+            if (API.hasEntityData(sender, keys.KEY_USER_WEAPONS))
             {
-                string[] weaponsList = weapons.Split(';');
-                foreach (string wep in weaponsList)
+                string weapons = (string)API.getEntityData(sender, keys.KEY_USER_WEAPONS) + "";
+                if (weapons != "" && weapons.Length > 1)
                 {
-                    API.givePlayerWeapon(sender, API.weaponNameToModel(wep), 99999, false, false);
+                    string[] weaponsList = weapons.Split(';');
+                    foreach (string wep in weaponsList)
+                    {
+                        API.givePlayerWeapon(sender, API.weaponNameToModel(wep), 99999, false, false);
+                    }
                 }
             }
         }
 
         private void SetPlayerCleanEntityData(Client sender)
         {
+            API.setEntitySyncedData(sender, keys.KEY_USER_IN_CHAR_EDITOR, false);
             API.setEntityData(sender.handle, keys.KEY_USER_AUTHENTICATED, false);
             API.setEntityData(sender.handle, keys.KEY_USER_ID, 0);
             API.setEntityData(sender.handle, keys.KEY_USER_ADMIN_LEVEL, 0);
@@ -744,7 +799,7 @@ namespace TheDarkZone
             API.setEntityPosition(sender, lobbySpawnPoint);
             API.setEntityRotation(sender, lobbyRotation);
             API.freezePlayer(sender, true);
-            API.setEntityDimension(sender, 1);
+            API.setEntityDimension(sender, GetRandomIntBetween(1,999));
             API.getPlayerFromHandle(sender.handle).invincible = true;
         }
 

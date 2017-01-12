@@ -46,6 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Managers\ClothingManager.cs" />
     <Compile Include="Data\KeyManager.cs" />
     <Compile Include="Data\UserDataManager.cs" />
     <Compile Include="Data\WeaponData.cs" />

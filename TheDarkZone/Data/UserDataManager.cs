@@ -35,6 +35,41 @@ namespace TheDarkZone.Data
 
         #region "Public functions"
 
+        public void SavePlayerClothing(Client sender)
+        {
+            try
+            {
+                using (MySqlConnection con = new MySqlConnection(connectionString))
+                {
+                    con.Open();
+                    strSQL = "UPDATE USER_Clothing SET ";
+                    strSQL += "hat=@hat, face=@face, mask=@mask, hair=@hair, hair_color=@hair_color, legs=@legs, bags=@bags, feet=@feet, accessories=@accessories, top=@top, torso=@torso, undershirt=@undershirt ";
+                    strSQL += "WHERE userid=@userid";
+                    using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                    {
+                        cmd.Parameters.AddWithValue("@hat", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_HAT));
+                        cmd.Parameters.AddWithValue("@face", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_FACE));
+                        cmd.Parameters.AddWithValue("@mask", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_MASK));
+                        cmd.Parameters.AddWithValue("@hair", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_HAIR));
+                        cmd.Parameters.AddWithValue("@hair_color", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_HAIR_COLOR));
+                        cmd.Parameters.AddWithValue("@legs", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_LEGS));
+                        cmd.Parameters.AddWithValue("@bags", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_BAGS));
+                        cmd.Parameters.AddWithValue("@feet", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_FEET));
+                        cmd.Parameters.AddWithValue("@accessories", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_ACCESSORIES));
+                        cmd.Parameters.AddWithValue("@top", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_TOP));
+                        cmd.Parameters.AddWithValue("@userid", API.shared.getEntityData(sender, mainScript.keys.KEY_USER_ID));
+                        cmd.Parameters.AddWithValue("@torso", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_TORSO));
+                        cmd.Parameters.AddWithValue("@undershirt", API.shared.getEntityData(sender, mainScript.keys.USER_CLOTHING_UNDERSHIRT));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                API.shared.consoleOutput("Error saving player clothing " + ex.Message);
+            }
+        }
+
         public bool UserNameExists(string username)
         {
             try
@@ -129,6 +164,7 @@ namespace TheDarkZone.Data
                     }
                 }
                 CreatePleayerInventoryRow(userID);
+                CreatePlayerClothingRow(userID);
             }
             catch (Exception ex)
             {
@@ -145,6 +181,20 @@ namespace TheDarkZone.Data
             {
                 con.Open();
                 strSQL = "INSERT INTO USER_Inventory (userid) VALUES (@userid)";
+                using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
+                {
+                    cmd.Parameters.AddWithValue("@userid", userID);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        private void CreatePlayerClothingRow(int userID)
+        {
+            using (MySqlConnection con = new MySqlConnection(connectionString))
+            {
+                con.Open();
+                strSQL = "INSERT INTO USER_Clothing (userid) VALUES (@userid)";
                 using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
                 {
                     cmd.Parameters.AddWithValue("@userid", userID);
@@ -191,9 +241,10 @@ namespace TheDarkZone.Data
                 using (MySqlConnection con = new MySqlConnection(connectionString))
                 {
                     con.Open();
-                    strSQL = "SELECT T1.role, T2.money, T2.weapons, T3.propertyname FROM USER_Accounts T1 ";
+                    strSQL = "SELECT T1.role, T2.money, T2.weapons, T3.propertyname, T4.* FROM USER_Accounts T1 ";
                     strSQL += "INNER JOIN USER_Inventory T2 on T1.id = T2.userid ";
                     strSQL += "LEFT JOIN USER_Appartment T3 on T1.ID = T3.userid ";
+                    strSQL += "LEFT JOIN USER_Clothing T4 on T1.id = T4.userid ";
                     strSQL+= " WHERE T1.id = @id";
                     using (MySqlCommand cmd = new MySqlCommand(strSQL, con))
                     {
@@ -206,14 +257,34 @@ namespace TheDarkZone.Data
                                 {
                                     player.roleLevel = (int)rdr["role"];
                                     player.money = (int)rdr["money"];
-                                    player.ownedWeapons = (string)rdr["weapons"];
-                                    if(rdr["propertyname"] != DBNull.Value) {
+                                    if (rdr["weapons"] != DBNull.Value)
+                                    {
+                                        player.ownedWeapons = (string)rdr["weapons"];
+                                    }
+                                    else
+                                    {
+                                        player.ownedWeapons = "";
+                                    }
+                                    if(rdr["propertyname"] != DBNull.Value) 
+                                    {
                                         player.ownedAppartment = (string)rdr["propertyname"];
                                     }
                                     else
                                     {
                                         player.ownedAppartment = "";
                                     }
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_HAT, (int)rdr["hat"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_FACE, (int)rdr["face"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_MASK, (int)rdr["mask"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_HAIR, (int)rdr["hair"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_HAIR_COLOR, (int)rdr["hair_color"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_LEGS, (int)rdr["legs"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_BAGS, (int)rdr["bags"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_FEET, (int)rdr["feet"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_ACCESSORIES, (int)rdr["accessories"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_TOP, (int)rdr["top"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_TORSO, (int)rdr["torso"]);
+                                    API.shared.setEntityData(player.client, mainScript.keys.USER_CLOTHING_UNDERSHIRT, (int)rdr["undershirt"]);
                                     return true;
                                 }
                             }
